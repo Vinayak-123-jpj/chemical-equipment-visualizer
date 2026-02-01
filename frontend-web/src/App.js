@@ -58,7 +58,7 @@ function App() {
   const [sortBy, setSortBy] = useState("name");
   const [rawData, setRawData] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [selectedEquipment, setSelectedEquipment] = useState(null);
+ 
   const [showAlerts, setShowAlerts] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [allAlerts, setAllAlerts] = useState([]);
@@ -68,12 +68,11 @@ function App() {
   const [comparisonData, setComparisonData] = useState(null);
   const [trendsData, setTrendsData] = useState(null);
   const [maintenanceSchedule, setMaintenanceSchedule] = useState([]);
-  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+ 
   const [theme, setTheme] = useState("light");
   const [rankings, setRankings] = useState([]);
   const [fullscreenChart, setFullscreenChart] = useState(null);
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [emailSchedules, setEmailSchedules] = useState([]);
+
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -116,10 +115,21 @@ function App() {
   const fetchHistory = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/history/");
-      setHistory(response.data.history || response.data);
+      const response = await axios.get(
+        "http://127.0.0.1:8000/api/trends/?days=90",
+      );
+      if (response.data && response.data.dates) {
+        const historyItems = response.data.dates.map((date, index) => ({
+          date: date,
+          flowrate: response.data.flowrate[index],
+          pressure: response.data.pressure[index],
+          temperature: response.data.temperature[index],
+        }));
+        setHistory(historyItems);
+      }
     } catch (error) {
       console.error("Failed to fetch history:", error);
+      setHistory([]);
     }
   }, [isAuthenticated]);
 
@@ -304,9 +314,17 @@ function App() {
   };
 
   const downloadExcel = () => {
+    if (!isAuthenticated) {
+      addNotification("Error", "Please login first", "error");
+      return;
+    }
+
     axios
       .get("http://127.0.0.1:8000/api/export/excel/", {
         responseType: "blob",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       })
       .then((res) => {
         const url = window.URL.createObjectURL(new Blob([res.data]));
@@ -316,6 +334,7 @@ function App() {
         document.body.appendChild(link);
         link.click();
         link.remove();
+        window.URL.revokeObjectURL(url);
         addNotification(
           "Success",
           "Excel report downloaded successfully!",
@@ -324,7 +343,12 @@ function App() {
       })
       .catch((error) => {
         console.error("Excel download failed:", error);
-        addNotification("Error", "Failed to generate Excel.", "error");
+        addNotification(
+          "Error",
+          "Failed to generate Excel: " +
+            (error.response?.data?.error || error.message),
+          "error",
+        );
       });
   };
 
@@ -374,8 +398,14 @@ function App() {
         return prev.filter((name) => name !== equipmentName);
       } else if (prev.length < 3) {
         return [...prev, equipmentName];
+      } else {
+        addNotification(
+          "Warning",
+          "Maximum 3 equipment can be compared",
+          "error",
+        );
+        return prev;
       }
-      return prev;
     });
   };
 
@@ -401,19 +431,7 @@ function App() {
     }
   };
 
-  const createMaintenance = async (maintenanceData) => {
-    try {
-      await axios.post(
-        "http://127.0.0.1:8000/api/maintenance/create/",
-        maintenanceData,
-      );
-      addNotification("Success", "Maintenance scheduled!", "success");
-      fetchMaintenance();
-      setShowMaintenanceModal(false);
-    } catch (error) {
-      addNotification("Error", "Failed to schedule maintenance", "error");
-    }
-  };
+ 
 
   const updateMaintenanceStatus = async (scheduleId, status) => {
     try {
@@ -425,45 +443,6 @@ function App() {
       fetchMaintenance();
     } catch (error) {
       addNotification("Error", "Failed to update status", "error");
-    }
-  };
-
-  const scheduleEmailReport = async (scheduleData) => {
-    try {
-      await axios.post(
-        "http://127.0.0.1:8000/api/email-reports/schedule/",
-        scheduleData,
-      );
-      addNotification("Success", "Email report scheduled!", "success");
-      fetchEmailSchedules();
-      setShowEmailModal(false);
-    } catch (error) {
-      addNotification("Error", "Failed to schedule email report", "error");
-    }
-  };
-
-  const toggleEmailSchedule = async (scheduleId, currentActive) => {
-    try {
-      await axios.post(
-        `http://127.0.0.1:8000/api/email-reports/${scheduleId}/update/`,
-        { active: !currentActive },
-      );
-      addNotification("Success", "Schedule updated!", "success");
-      fetchEmailSchedules();
-    } catch (error) {
-      addNotification("Error", "Failed to update schedule", "error");
-    }
-  };
-
-  const deleteEmailSchedule = async (scheduleId) => {
-    try {
-      await axios.delete(
-        `http://127.0.0.1:8000/api/email-reports/${scheduleId}/delete/`,
-      );
-      addNotification("Success", "Schedule deleted!", "success");
-      fetchEmailSchedules();
-    } catch (error) {
-      addNotification("Error", "Failed to delete schedule", "error");
     }
   };
 
@@ -807,6 +786,64 @@ function App() {
 
   return (
     <div className={`app-container ${theme === "dark" ? "dark-mode" : ""}`}>
+      {/* Fullscreen Chart Modal */}
+      <AnimatePresence>
+        {fullscreenChart && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="modal-overlay"
+            onClick={() => setFullscreenChart(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              className="modal-content"
+              style={{ maxWidth: "90vw", width: "1200px", padding: "40px" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                className="modal-close"
+                onClick={() => setFullscreenChart(null)}
+              >
+                ✕
+              </button>
+              <h2 style={{ marginBottom: "30px" }}>
+                📊 {fullscreenChart.title}
+              </h2>
+              <div style={{ height: "600px" }}>
+                {fullscreenChart.type === "bar" && (
+                  <Bar
+                    data={fullscreenChart.data}
+                    options={{ ...chartOptions, maintainAspectRatio: false }}
+                  />
+                )}
+                {fullscreenChart.type === "line" && (
+                  <Line
+                    data={fullscreenChart.data}
+                    options={{ ...chartOptions, maintainAspectRatio: false }}
+                  />
+                )}
+                {fullscreenChart.type === "doughnut" && (
+                  <Doughnut
+                    data={fullscreenChart.data}
+                    options={{ ...chartOptions, maintainAspectRatio: false }}
+                  />
+                )}
+                {fullscreenChart.type === "radar" && (
+                  <Radar
+                    data={fullscreenChart.data}
+                    options={{ ...chartOptions, maintainAspectRatio: false }}
+                  />
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Notifications */}
       <div className="notifications-container">
         <AnimatePresence>
@@ -1034,6 +1071,8 @@ function App() {
                     </button>
                   </div>
                 </div>
+
+                {/* Summary Stats */}
                 <div className="summary-grid">
                   <div className="stat-item stat-primary">
                     <div className="stat-icon">📝</div>
@@ -1075,6 +1114,52 @@ function App() {
                 </div>
               </div>
 
+              {/* History Table */}
+              {showHistory && (
+                <AnimatePresence>
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="card"
+                  >
+                    <h3>📜 Upload History</h3>
+                    {history.length > 0 ? (
+                      <div className="history-table">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Avg Flowrate (L/min)</th>
+                              <th>Avg Pressure (bar)</th>
+                              <th>Avg Temperature (°C)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {history.slice(0, 20).map((item, index) => (
+                              <tr key={index}>
+                                <td>
+                                  {new Date(item.date).toLocaleDateString()}
+                                </td>
+                                <td>{item.flowrate?.toFixed(2) || "N/A"}</td>
+                                <td>{item.pressure?.toFixed(2) || "N/A"}</td>
+                                <td>{item.temperature?.toFixed(2) || "N/A"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="empty-state">
+                        <div className="empty-icon">📊</div>
+                        <h3>No History Available</h3>
+                        <p>Upload more datasets to see historical trends</p>
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              )}
+
               {/* Equipment Distribution Chart */}
               <div className="card">
                 <div className="card-header">
@@ -1093,6 +1178,19 @@ function App() {
                         {chart.emoji} {chart.label}
                       </button>
                     ))}
+                    <button
+                      className="chart-btn"
+                      onClick={() =>
+                        setFullscreenChart({
+                          type: selectedChart,
+                          data: getChartData(),
+                          title: "Equipment Distribution",
+                        })
+                      }
+                      title="Fullscreen"
+                    >
+                      ⛶ Fullscreen
+                    </button>
                   </div>
                 </div>
                 <div className="chart-container">
@@ -1120,7 +1218,21 @@ function App() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="analytics-grid">
                 <div className="card">
-                  <h3>🎯 Performance Overview</h3>
+                  <div className="card-header">
+                    <h3>🎯 Performance Overview</h3>
+                    <button
+                      className="btn"
+                      onClick={() =>
+                        setFullscreenChart({
+                          type: "radar",
+                          data: getRadarData(),
+                          title: "Performance Overview",
+                        })
+                      }
+                    >
+                      ⛶ Fullscreen
+                    </button>
+                  </div>
                   <div className="chart-container">
                     {getRadarData() && (
                       <Radar data={getRadarData()} options={chartOptions} />
@@ -1176,27 +1288,120 @@ function App() {
               <div className="card">
                 <div className="card-header">
                   <h3>🔍 Equipment Details</h3>
-                  <div className="filter-controls">
-                    <input
-                      type="text"
-                      placeholder="🔎 Search equipment..."
-                      className="search-input"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    <select
-                      className="sort-select"
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
+                  <div className="action-buttons">
+                    <button
+                      className={`btn ${compareMode ? "btn-success" : "btn-secondary"}`}
+                      onClick={() => {
+                        setCompareMode(!compareMode);
+                        if (compareMode) {
+                          setSelectedForCompare([]);
+                          setComparisonData(null);
+                        }
+                      }}
                     >
-                      <option value="name">Sort by Name</option>
-                      <option value="type">Sort by Type</option>
-                      <option value="flowrate">Sort by Flowrate</option>
-                      <option value="pressure">Sort by Pressure</option>
-                      <option value="temperature">Sort by Temperature</option>
-                    </select>
+                      {compareMode
+                        ? "✓ Compare Mode Active"
+                        : "⚖️ Compare Equipment"}
+                    </button>
+                    {selectedForCompare.length >= 2 && compareMode && (
+                      <button className="btn" onClick={compareEquipment}>
+                        📊 Compare Selected ({selectedForCompare.length})
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                <div className="filter-controls">
+                  <input
+                    type="text"
+                    placeholder="🔎 Search equipment..."
+                    className="search-input"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <select
+                    className="sort-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                  >
+                    <option value="name">Sort by Name</option>
+                    <option value="type">Sort by Type</option>
+                    <option value="flowrate">Sort by Flowrate</option>
+                    <option value="pressure">Sort by Pressure</option>
+                    <option value="temperature">Sort by Temperature</option>
+                  </select>
+                </div>
+
+                {/* Comparison Results */}
+                {comparisonData && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="comparison-results"
+                  >
+                    <div className="card-header">
+                      <h4>📊 Comparison Results</h4>
+                      <button
+                        className="btn"
+                        onClick={() =>
+                          setFullscreenChart({
+                            type: "bar",
+                            data: getComparisonData(),
+                            title: "Equipment Comparison",
+                          })
+                        }
+                      >
+                        ⛶ Fullscreen
+                      </button>
+                    </div>
+                    <div className="chart-container">
+                      <Bar data={getComparisonData()} options={chartOptions} />
+                    </div>
+                    <div className="comparison-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Equipment</th>
+                            <th>Type</th>
+                            <th>Flowrate</th>
+                            <th>Pressure</th>
+                            <th>Temperature</th>
+                            <th>Health Score</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {comparisonData.map((eq, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                <strong>{eq.name}</strong>
+                              </td>
+                              <td>
+                                <span className="type-badge">{eq.type}</span>
+                              </td>
+                              <td>{eq.flowrate}</td>
+                              <td>{eq.pressure}</td>
+                              <td>{eq.temperature}</td>
+                              <td>
+                                <span
+                                  className="health-badge"
+                                  style={{
+                                    backgroundColor: getScoreColor(
+                                      eq.health_score,
+                                    ),
+                                    padding: "4px 12px",
+                                    borderRadius: "8px",
+                                  }}
+                                >
+                                  {eq.health_score}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                )}
 
                 <div className="equipment-grid">
                   {sortedData.map((item, index) => {
@@ -1210,15 +1415,30 @@ function App() {
                       item.pressure,
                       item.temperature,
                     );
+                    const isSelected = selectedForCompare.includes(item.name);
 
                     return (
                       <motion.div
                         key={index}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className={`equipment-card status-${status}`}
-                        onClick={() => setSelectedEquipment(item)}
+                        className={`equipment-card status-${status} ${isSelected ? "selected" : ""}`}
+                        onClick={() =>
+                          !compareMode && setSelectedEquipment(item)
+                        }
                       >
+                        {compareMode && (
+                          <div className="compare-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                toggleCompareSelection(item.name);
+                              }}
+                            />
+                          </div>
+                        )}
                         <div className="equipment-header">
                           <h4>{item.name}</h4>
                           <span className={`status-badge ${status}`}>
@@ -1475,7 +1695,21 @@ function App() {
           {activeTab === "trends" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
-                <h3>📉 Historical Trends (Last 30 Days)</h3>
+                <div className="card-header">
+                  <h3>📉 Historical Trends (Last 30 Days)</h3>
+                  <button
+                    className="btn"
+                    onClick={() =>
+                      setFullscreenChart({
+                        type: "line",
+                        data: getTrendData(),
+                        title: "Historical Trends",
+                      })
+                    }
+                  >
+                    ⛶ Fullscreen
+                  </button>
+                </div>
                 <div className="chart-container">
                   {getTrendData() ? (
                     <Line data={getTrendData()} options={chartOptions} />
