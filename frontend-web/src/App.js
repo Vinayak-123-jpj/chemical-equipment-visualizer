@@ -18,6 +18,8 @@ import {
 } from "chart.js";
 import { Bar, Line, Doughnut, Radar } from "react-chartjs-2";
 import "./styles/App.css";
+import "./styles/App.css";
+import "./styles/NewFeatures.css";  
 
 ChartJS.register(
   CategoryScale,
@@ -37,7 +39,8 @@ function App() {
   const [summary, setSummary] = useState(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
   const [history, setHistory] = useState([]);
-  const [alerts, setAlerts] = useState([]);
+ const [, setAlerts] = useState([]);
+
   const [fileName, setFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [selectedChart, setSelectedChart] = useState("bar");
@@ -51,13 +54,23 @@ function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
- const auth = useMemo(
-   () => ({
-     username: "vinayak",
-     password: "test@1234",
-   }),
-   [],
- );
+  // NEW STATE FOR NEW FEATURES
+  const [allAlerts, setAllAlerts] = useState([]);
+  const [showResolvedAlerts, setShowResolvedAlerts] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState([]);
+  const [comparisonData, setComparisonData] = useState(null);
+  const [trendsData, setTrendsData] = useState(null);
+  const [maintenanceSchedule, setMaintenanceSchedule] = useState([]);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+
+  const auth = useMemo(
+    () => ({
+      username: "vinayak",
+      password: "test@1234",
+    }),
+    [],
+  );
 
   // Apply dark mode to document body
   useEffect(() => {
@@ -73,15 +86,64 @@ function App() {
       const response = await axios.get("http://127.0.0.1:8000/api/history/", {
         auth,
       });
-      setHistory(response.data);
+      setHistory(response.data.history || response.data);
+
     } catch (error) {
       console.error("Failed to fetch history:", error);
     }
   }, [auth]);
 
+  // NEW: Fetch alerts
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        `http://127.0.0.1:8000/api/alerts/?resolved=${showResolvedAlerts}`,
+        {
+          auth,
+        },
+      );
+      setAllAlerts(response.data);
+    } catch (error) {
+      console.error("Failed to fetch alerts:", error);
+    }
+  }, [auth, showResolvedAlerts]);
+
+  // NEW: Fetch trends
+  const fetchTrends = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        "http://127.0.0.1:8000/api/trends/?days=30",
+        {
+          auth,
+        },
+      );
+      setTrendsData(response.data);
+    } catch (error) {
+      console.error("Failed to fetch trends:", error);
+    }
+  }, [auth]);
+
+  // NEW: Fetch maintenance schedule
+  const fetchMaintenance = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        "http://127.0.0.1:8000/api/maintenance/",
+        {
+          auth,
+        },
+      );
+      setMaintenanceSchedule(response.data);
+    } catch (error) {
+      console.error("Failed to fetch maintenance:", error);
+    }
+  }, [auth]);
+
   useEffect(() => {
     fetchHistory();
-  }, [fetchHistory]);
+    fetchAlerts();
+    fetchTrends();
+    fetchMaintenance();
+  }, [fetchHistory, fetchAlerts, fetchTrends, fetchMaintenance]);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -134,6 +196,8 @@ function App() {
       reader.readAsText(file);
 
       fetchHistory();
+      fetchAlerts();
+      fetchTrends();
     } catch (error) {
       console.error("Upload failed:", error);
       addNotification(
@@ -215,6 +279,88 @@ function App() {
     addNotification("Success", "CSV exported successfully!", "success");
   };
 
+  // NEW: Resolve alert
+  const resolveAlert = async (alertId) => {
+    try {
+      await axios.post(
+        `http://127.0.0.1:8000/api/alerts/${alertId}/resolve/`,
+        {},
+        { auth },
+      );
+      addNotification("Success", "Alert resolved!", "success");
+      fetchAlerts();
+    } catch (error) {
+      addNotification("Error", "Failed to resolve alert", "error");
+    }
+  };
+
+  // NEW: Toggle equipment selection for comparison
+  const toggleCompareSelection = (equipmentName) => {
+    setSelectedForCompare((prev) => {
+      if (prev.includes(equipmentName)) {
+        return prev.filter((name) => name !== equipmentName);
+      } else if (prev.length < 3) {
+        return [...prev, equipmentName];
+      }
+      return prev;
+    });
+  };
+
+  // NEW: Compare equipment
+  const compareEquipment = async () => {
+    if (selectedForCompare.length < 2) {
+      addNotification(
+        "Error",
+        "Select at least 2 equipment to compare",
+        "error",
+      );
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        "http://127.0.0.1:8000/api/compare-equipment/",
+        { equipment_names: selectedForCompare },
+        { auth },
+      );
+      setComparisonData(response.data);
+      addNotification("Success", "Equipment compared successfully!", "success");
+    } catch (error) {
+      addNotification("Error", "Failed to compare equipment", "error");
+    }
+  };
+
+  // NEW: Create maintenance schedule
+  const createMaintenance = async (maintenanceData) => {
+    try {
+      await axios.post(
+        "http://127.0.0.1:8000/api/maintenance/create/",
+        maintenanceData,
+        { auth },
+      );
+      addNotification("Success", "Maintenance scheduled!", "success");
+      fetchMaintenance();
+      setShowMaintenanceModal(false);
+    } catch (error) {
+      addNotification("Error", "Failed to schedule maintenance", "error");
+    }
+  };
+
+  // NEW: Update maintenance status
+  const updateMaintenanceStatus = async (scheduleId, status) => {
+    try {
+      await axios.post(
+        `http://127.0.0.1:8000/api/maintenance/${scheduleId}/update/`,
+        { status },
+        { auth },
+      );
+      addNotification("Success", "Status updated!", "success");
+      fetchMaintenance();
+    } catch (error) {
+      addNotification("Error", "Failed to update status", "error");
+    }
+  };
+
   const getChartData = () => {
     if (!summary) return null;
 
@@ -280,21 +426,14 @@ function App() {
   };
 
   const getTrendData = () => {
-    if (history.length < 2) return null;
-
-    const recentHistory = history.slice(0, 10).reverse();
+    if (!trendsData || trendsData.dates.length === 0) return null;
 
     return {
-      labels: recentHistory.map((h) =>
-        new Date(h.uploaded_at).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        }),
-      ),
+      labels: trendsData.dates,
       datasets: [
         {
           label: "Flowrate Trend",
-          data: recentHistory.map((h) => h.avg_flowrate),
+          data: trendsData.flowrate,
           borderColor: "#667eea",
           backgroundColor: "rgba(102, 126, 234, 0.1)",
           tension: 0.4,
@@ -302,7 +441,7 @@ function App() {
         },
         {
           label: "Pressure Trend",
-          data: recentHistory.map((h) => h.avg_pressure),
+          data: trendsData.pressure,
           borderColor: "#4facfe",
           backgroundColor: "rgba(79, 172, 254, 0.1)",
           tension: 0.4,
@@ -310,11 +449,44 @@ function App() {
         },
         {
           label: "Temperature Trend",
-          data: recentHistory.map((h) => h.avg_temperature),
+          data: trendsData.temperature,
           borderColor: "#fa709a",
           backgroundColor: "rgba(250, 112, 154, 0.1)",
           tension: 0.4,
           fill: true,
+        },
+      ],
+    };
+  };
+
+  // NEW: Comparison chart data
+  const getComparisonData = () => {
+    if (!comparisonData) return null;
+
+    const labels = comparisonData.map((eq) => eq.name);
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Flowrate",
+          data: comparisonData.map((eq) => eq.flowrate),
+          backgroundColor: "rgba(102, 126, 234, 0.7)",
+        },
+        {
+          label: "Pressure",
+          data: comparisonData.map((eq) => eq.pressure),
+          backgroundColor: "rgba(79, 172, 254, 0.7)",
+        },
+        {
+          label: "Temperature",
+          data: comparisonData.map((eq) => eq.temperature),
+          backgroundColor: "rgba(250, 112, 154, 0.7)",
+        },
+        {
+          label: "Health Score",
+          data: comparisonData.map((eq) => eq.health_score),
+          backgroundColor: "rgba(16, 185, 129, 0.7)",
         },
       ],
     };
@@ -466,8 +638,8 @@ function App() {
             onClick={() => setShowAlerts(!showAlerts)}
           >
             🔔{" "}
-            {alerts.length > 0 && (
-              <span className="alert-badge">{alerts.length}</span>
+            {allAlerts.length > 0 && (
+              <span className="alert-badge">{allAlerts.length}</span>
             )}
           </button>
         </div>
@@ -475,32 +647,60 @@ function App() {
 
       {/* Alerts Panel */}
       <AnimatePresence>
-        {showAlerts && alerts.length > 0 && (
+        {showAlerts && allAlerts.length > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="alerts-panel"
           >
-            <h3>🔔 Active Alerts ({alerts.length})</h3>
+            <div className="alert-panel-header">
+              <h3>
+                🔔 Active Alerts ({allAlerts.filter((a) => !a.resolved).length})
+              </h3>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={showResolvedAlerts}
+                  onChange={() => setShowResolvedAlerts(!showResolvedAlerts)}
+                />
+                <span>Show Resolved</span>
+              </label>
+            </div>
             <div className="alerts-grid">
-              {alerts.map((alert, index) => (
+              {allAlerts.map((alert) => (
                 <div
-                  key={index}
-                  className={`alert-card alert-${alert.type.toLowerCase()}`}
+                  key={alert.id}
+                  className={`alert-card alert-${alert.alert_type.toLowerCase()} ${alert.resolved ? "resolved" : ""}`}
                 >
                   <div className="alert-header">
                     <span className="alert-icon">
-                      {alert.type === "Critical" ? "🚨" : "⚠️"}
+                      {alert.alert_type === "CRITICAL" ? "🚨" : "⚠️"}
                     </span>
-                    <strong>{alert.equipment}</strong>
+                    <strong>{alert.equipment_name}</strong>
                   </div>
-                  <p>{alert.message}</p>
+                  <p className="alert-message">{alert.message}</p>
                   {alert.recommendation && (
                     <div className="alert-recommendation">
                       💡 {alert.recommendation}
                     </div>
                   )}
+                  <div className="alert-footer">
+                    <span className="alert-time">
+                      {new Date(alert.created_at).toLocaleString()}
+                    </span>
+                    {!alert.resolved && (
+                      <button
+                        className="btn-resolve"
+                        onClick={() => resolveAlert(alert.id)}
+                      >
+                        ✓ Resolve
+                      </button>
+                    )}
+                    {alert.resolved && (
+                      <span className="resolved-badge">✓ Resolved</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -563,22 +763,28 @@ function App() {
         <>
           {/* Navigation Tabs */}
           <div className="tabs-container">
-            {["dashboard", "analytics", "equipment", "trends", "reports"].map(
-              (tab) => (
-                <button
-                  key={tab}
-                  className={`tab-button ${activeTab === tab ? "active" : ""}`}
-                  onClick={() => setActiveTab(tab)}
-                >
-                  {tab === "dashboard" && "📊"}
-                  {tab === "analytics" && "📈"}
-                  {tab === "equipment" && "🔧"}
-                  {tab === "trends" && "📉"}
-                  {tab === "reports" && "📄"}{" "}
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ),
-            )}
+            {[
+              "dashboard",
+              "analytics",
+              "equipment",
+              "trends",
+              "maintenance",
+              "reports",
+            ].map((tab) => (
+              <button
+                key={tab}
+                className={`tab-button ${activeTab === tab ? "active" : ""}`}
+                onClick={() => setActiveTab(tab)}
+              >
+                {tab === "dashboard" && "📊"}
+                {tab === "analytics" && "📈"}
+                {tab === "equipment" && "🔧"}
+                {tab === "trends" && "📉"}
+                {tab === "maintenance" && "🛠️"}
+                {tab === "reports" && "📄"}{" "}
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
           </div>
 
           {/* Dashboard Tab */}
@@ -662,45 +868,78 @@ function App() {
 
               {/* Upload History */}
               <AnimatePresence>
-                {showHistory && history.length > 0 && (
+                {showHistory && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     className="card"
                   >
-                    <h3>📜 Upload History (Last 10)</h3>
-                    <div className="history-table">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Date</th>
-                            <th>Records</th>
-                            <th>Flowrate</th>
-                            <th>Pressure</th>
-                            <th>Temperature</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {history.map((item, index) => (
-                            <motion.tr
-                              key={index}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: index * 0.05 }}
-                            >
-                              <td>
-                                {new Date(item.uploaded_at).toLocaleString()}
-                              </td>
-                              <td>{item.total_records}</td>
-                              <td>{item.avg_flowrate.toFixed(2)}</td>
-                              <td>{item.avg_pressure.toFixed(2)}</td>
-                              <td>{item.avg_temperature.toFixed(2)}</td>
-                            </motion.tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="card-header">
+                      <h3>📜 Upload History (Last 10)</h3>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          console.log("Current history:", history);
+                          fetchHistory();
+                        }}
+                      >
+                        🔄 Refresh
+                      </button>
                     </div>
+
+                    {history.length === 0 ? (
+                      <div className="empty-state" style={{ padding: "40px" }}>
+                        <div className="empty-icon">📊</div>
+                        <h3>No History Available</h3>
+                        <p>Upload CSV files to see your history here.</p>
+                        <p
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "#94a3b8",
+                            marginTop: "10px",
+                          }}
+                        >
+                          History will appear after you upload your first CSV
+                          file.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="history-table">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Records</th>
+                              <th>Flowrate</th>
+                              <th>Pressure</th>
+                              <th>Temperature</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Array.isArray(history) &&
+                              history.map((item, index) => (
+                                <motion.tr
+                                  key={item.id || index}
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: index * 0.05 }}
+                                >
+                                  <td>
+                                    {new Date(
+                                      item.uploaded_at,
+                                    ).toLocaleString()}
+                                  </td>
+                                  <td>{item.total_records}</td>
+                                  <td>{item.avg_flowrate.toFixed(2)}</td>
+                                  <td>{item.avg_pressure.toFixed(2)}</td>
+                                  <td>{item.avg_temperature.toFixed(2)}</td>
+                                </motion.tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -910,8 +1149,92 @@ function App() {
                       <option value="pressure">Sort by Pressure</option>
                       <option value="temperature">Sort by Temperature</option>
                     </select>
+                    <button
+                      className={`btn ${compareMode ? "btn-success" : "btn-secondary"}`}
+                      onClick={() => {
+                        setCompareMode(!compareMode);
+                        if (compareMode) {
+                          setSelectedForCompare([]);
+                          setComparisonData(null);
+                        }
+                      }}
+                    >
+                      {compareMode ? "✓ Comparing" : "📊 Compare Mode"}
+                    </button>
+                    {compareMode && selectedForCompare.length >= 2 && (
+                      <button
+                        className="btn btn-primary"
+                        onClick={compareEquipment}
+                      >
+                        Compare {selectedForCompare.length} Items
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                {/* Comparison Results */}
+                {comparisonData && (
+                  <div className="comparison-results">
+                    <h4>📊 Comparison Results</h4>
+                    <div className="chart-container">
+                      <Bar
+                        data={getComparisonData()}
+                        options={{
+                          ...chartOptions,
+                          plugins: {
+                            ...chartOptions.plugins,
+                            legend: { display: true, position: "top" },
+                          },
+                        }}
+                      />
+                    </div>
+                    <div className="comparison-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Equipment</th>
+                            <th>Type</th>
+                            <th>Flowrate</th>
+                            <th>Pressure</th>
+                            <th>Temperature</th>
+                            <th>Health Score</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {comparisonData.map((eq, index) => (
+                            <tr key={index}>
+                              <td>
+                                <strong>{eq.name}</strong>
+                              </td>
+                              <td>{eq.type}</td>
+                              <td>{eq.flowrate}</td>
+                              <td>{eq.pressure}</td>
+                              <td>{eq.temperature}</td>
+                              <td>
+                                <span
+                                  className="health-badge"
+                                  style={{
+                                    backgroundColor:
+                                      eq.health_score >= 90
+                                        ? "#10b981"
+                                        : eq.health_score >= 75
+                                          ? "#4facfe"
+                                          : eq.health_score >= 60
+                                            ? "#fee140"
+                                            : "#fa709a",
+                                  }}
+                                >
+                                  {eq.health_score}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 <div className="equipment-grid">
                   <AnimatePresence>
                     {sortedData.map((item, index) => {
@@ -925,6 +1248,7 @@ function App() {
                         item.pressure,
                         item.temperature,
                       );
+                      const isSelected = selectedForCompare.includes(item.name);
 
                       return (
                         <motion.div
@@ -935,9 +1259,26 @@ function App() {
                           exit={{ opacity: 0, scale: 0.9 }}
                           whileHover={{ scale: 1.05, y: -5 }}
                           transition={{ duration: 0.2 }}
-                          className={`equipment-card status-${status}`}
-                          onClick={() => setSelectedEquipment(item)}
+                          className={`equipment-card status-${status} ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            if (compareMode) {
+                              toggleCompareSelection(item.name);
+                            } else {
+                              setSelectedEquipment(item);
+                            }
+                          }}
                         >
+                          {compareMode && (
+                            <div className="compare-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() =>
+                                  toggleCompareSelection(item.name)
+                                }
+                              />
+                            </div>
+                          )}
                           <div className="equipment-header">
                             <h4>{item.name}</h4>
                             <span className={`status-badge ${status}`}>
@@ -1035,7 +1376,7 @@ function App() {
             </motion.div>
           )}
 
-          {/* Trends Tab */}
+          {/* Trends Tab - NEW */}
           {activeTab === "trends" && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -1043,9 +1384,9 @@ function App() {
               transition={{ duration: 0.3 }}
             >
               <div className="card">
-                <h3>📉 Historical Trends</h3>
+                <h3>📉 Historical Trends (Last 30 Days)</h3>
                 <div className="chart-container">
-                  {getTrendData() && (
+                  {getTrendData() ? (
                     <Line
                       data={getTrendData()}
                       options={{
@@ -1063,8 +1404,7 @@ function App() {
                         },
                       }}
                     />
-                  )}
-                  {!getTrendData() && (
+                  ) : (
                     <div className="empty-state">
                       <div className="empty-icon">📊</div>
                       <h3>Not Enough Data</h3>
@@ -1072,6 +1412,94 @@ function App() {
                     </div>
                   )}
                 </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Maintenance Tab - NEW */}
+          {activeTab === "maintenance" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="card">
+                <div className="card-header">
+                  <h3>🛠️ Maintenance Schedule</h3>
+                  <button
+                    className="btn btn-success"
+                    onClick={() => setShowMaintenanceModal(true)}
+                  >
+                    + Schedule Maintenance
+                  </button>
+                </div>
+
+                {maintenanceSchedule.length > 0 ? (
+                  <div className="maintenance-grid">
+                    {maintenanceSchedule.map((schedule) => (
+                      <div
+                        key={schedule.id}
+                        className={`maintenance-card priority-${schedule.priority.toLowerCase()}`}
+                      >
+                        <div className="maintenance-header">
+                          <h4>{schedule.equipment_name}</h4>
+                          <span
+                            className={`priority-badge priority-${schedule.priority.toLowerCase()}`}
+                          >
+                            {schedule.priority}
+                          </span>
+                        </div>
+                        <div className="maintenance-details">
+                          <p>
+                            <strong>Type:</strong> {schedule.equipment_type}
+                          </p>
+                          <p>
+                            <strong>Date:</strong>{" "}
+                            {new Date(
+                              schedule.scheduled_date,
+                            ).toLocaleDateString()}
+                          </p>
+                          <p>
+                            <strong>Est. Hours:</strong>{" "}
+                            {schedule.estimated_hours}h
+                          </p>
+                          <p>
+                            <strong>Status:</strong>
+                            <select
+                              value={schedule.status}
+                              onChange={(e) =>
+                                updateMaintenanceStatus(
+                                  schedule.id,
+                                  e.target.value,
+                                )
+                              }
+                              className="status-select"
+                            >
+                              <option value="SCHEDULED">Scheduled</option>
+                              <option value="IN_PROGRESS">In Progress</option>
+                              <option value="COMPLETED">Completed</option>
+                              <option value="CANCELLED">Cancelled</option>
+                            </select>
+                          </p>
+                          {schedule.parts_needed &&
+                            schedule.parts_needed.length > 0 && (
+                              <p>
+                                <strong>Parts:</strong>{" "}
+                                {schedule.parts_needed.join(", ")}
+                              </p>
+                            )}
+                          <p className="description">{schedule.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    <div className="empty-icon">🛠️</div>
+                    <h3>No Maintenance Scheduled</h3>
+                    <p>Schedule maintenance for your equipment</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -1194,6 +1622,119 @@ function App() {
                   </span>
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Maintenance Modal - NEW */}
+      <AnimatePresence>
+        {showMaintenanceModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="modal-overlay"
+            onClick={() => setShowMaintenanceModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                className="modal-close"
+                onClick={() => setShowMaintenanceModal(false)}
+              >
+                ✕
+              </button>
+              <h2>Schedule Maintenance</h2>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  createMaintenance({
+                    equipment_name: formData.get("equipment_name"),
+                    equipment_type: formData.get("equipment_type"),
+                    scheduled_date: formData.get("scheduled_date"),
+                    priority: formData.get("priority"),
+                    estimated_hours: parseFloat(
+                      formData.get("estimated_hours"),
+                    ),
+                    description: formData.get("description"),
+                    parts_needed: formData
+                      .get("parts_needed")
+                      .split(",")
+                      .map((p) => p.trim())
+                      .filter((p) => p),
+                  });
+                }}
+                className="maintenance-form"
+              >
+                <div className="form-group">
+                  <label>Equipment Name</label>
+                  <input type="text" name="equipment_name" required />
+                </div>
+                <div className="form-group">
+                  <label>Equipment Type</label>
+                  <select name="equipment_type" required>
+                    <option value="Pump">Pump</option>
+                    <option value="Compressor">Compressor</option>
+                    <option value="Valve">Valve</option>
+                    <option value="HeatExchanger">Heat Exchanger</option>
+                    <option value="Reactor">Reactor</option>
+                    <option value="Condenser">Condenser</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Scheduled Date</label>
+                  <input type="date" name="scheduled_date" required />
+                </div>
+                <div className="form-group">
+                  <label>Priority</label>
+                  <select name="priority" required>
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="CRITICAL">Critical</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Estimated Hours</label>
+                  <input
+                    type="number"
+                    name="estimated_hours"
+                    step="0.5"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Parts Needed (comma-separated)</label>
+                  <input
+                    type="text"
+                    name="parts_needed"
+                    placeholder="e.g., Filter, Seal, Bearing"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea name="description" rows="3" required></textarea>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-success">
+                    Schedule
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowMaintenanceModal(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </motion.div>
         )}
