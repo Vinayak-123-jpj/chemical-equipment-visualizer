@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -43,51 +42,9 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
-// NEW FEATURE 1: Animated Counter Component
-const AnimatedCounter = ({ value, duration = 2000, suffix = "" }) => {
-  const [count, setCount] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  useEffect(() => {
-    if (value === count) return;
-
-    setIsAnimating(true);
-    const increment = value / (duration / 16);
-    let current = 0;
-
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= value) {
-        setCount(value);
-        clearInterval(timer);
-        setIsAnimating(false);
-      } else {
-        setCount(Math.floor(current));
-      }
-    }, 16);
-
-    return () => clearInterval(timer);
-  }, [value, duration, count]);
-
-
-  return (
-    <motion.span
-      className="animated-counter"
-      initial={{ scale: 1 }}
-      animate={{ scale: isAnimating ? [1, 1.1, 1] : 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      {typeof count === "number" && !isNaN(count)
-        ? count.toFixed(typeof value === "number" && value % 1 !== 0 ? 2 : 0)
-        : "0"}
-      {suffix}
-    </motion.span>
-  );
-};
-
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
- const [, setUser] = useState(null);
+  const [, setUser] = useState(null);
 
   const [summary, setSummary] = useState(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
@@ -112,17 +69,9 @@ function App() {
   const [trendsData, setTrendsData] = useState(null);
   const [maintenanceSchedule, setMaintenanceSchedule] = useState([]);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
-
-  // NEW FEATURE 4: Enhanced Dark/Light Theme Toggle
   const [theme, setTheme] = useState("light");
-
-  // NEW FEATURE 3: Performance Rankings
   const [rankings, setRankings] = useState([]);
-
-  // NEW FEATURE 6: Fullscreen Chart Mode
   const [fullscreenChart, setFullscreenChart] = useState(null);
-
-  // NEW FEATURE 7: Email Reports
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailSchedules, setEmailSchedules] = useState([]);
 
@@ -138,6 +87,7 @@ function App() {
 
     setTheme(savedTheme);
     document.documentElement.setAttribute("data-theme", savedTheme);
+    document.body.className = savedTheme === "dark" ? "dark-mode" : "";
   }, []);
 
   const handleLogin = (userData, token) => {
@@ -160,6 +110,7 @@ function App() {
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
     document.documentElement.setAttribute("data-theme", newTheme);
+    document.body.className = newTheme === "dark" ? "dark-mode" : "";
   };
 
   const fetchHistory = useCallback(async () => {
@@ -208,7 +159,6 @@ function App() {
     }
   }, [isAuthenticated]);
 
-  // NEW: Fetch rankings
   const fetchRankings = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -219,7 +169,6 @@ function App() {
     }
   }, [isAuthenticated]);
 
-  // NEW: Fetch email schedules
   const fetchEmailSchedules = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -354,7 +303,6 @@ function App() {
       });
   };
 
-  // NEW FEATURE 2: Export to Excel
   const downloadExcel = () => {
     axios
       .get("http://127.0.0.1:8000/api/export/excel/", {
@@ -480,7 +428,6 @@ function App() {
     }
   };
 
-  // NEW: Email report functions
   const scheduleEmailReport = async (scheduleData) => {
     try {
       await axios.post(
@@ -524,7 +471,14 @@ function App() {
     if (rank === 1) return "🥇";
     if (rank === 2) return "🥈";
     if (rank === 3) return "🥉";
-    return "🏅";
+    return `#${rank}`;
+  };
+
+  const getScoreColor = (score) => {
+    if (score >= 90) return "#10b981";
+    if (score >= 75) return "#4facfe";
+    if (score >= 60) return "#fee140";
+    return "#fa709a";
   };
 
   const getChartData = () => {
@@ -566,13 +520,6 @@ function App() {
             pointBackgroundColor: "#667eea",
             pointBorderColor: "#fff",
             pointBorderWidth: 3,
-            pointHoverBackgroundColor: "#fff",
-            pointHoverBorderColor: "#667eea",
-            pointHoverBorderWidth: 4,
-            shadowOffsetX: 2,
-            shadowOffsetY: 2,
-            shadowBlur: 10,
-            shadowColor: "rgba(102, 126, 234, 0.5)",
           },
         ],
       };
@@ -585,12 +532,12 @@ function App() {
           {
             label: "Equipment Count",
             data,
-            backgroundColor: gradientColors.map((g, i) => g.start),
+            backgroundColor: gradientColors.map((g) => g.start),
             borderColor: "#fff",
             borderWidth: 5,
             hoverBorderWidth: 7,
             hoverOffset: 20,
-            hoverBackgroundColor: gradientColors.map((g, i) => g.middle),
+            hoverBackgroundColor: gradientColors.map((g) => g.middle),
             spacing: 3,
             borderRadius: 8,
           },
@@ -618,17 +565,6 @@ function App() {
           borderWidth: 3,
           borderRadius: 20,
           barThickness: 70,
-          hoverBackgroundColor: (context) => {
-            const colors =
-              gradientColors[context.dataIndex % gradientColors.length];
-            return colors.middle;
-          },
-          hoverBorderColor: "#fff",
-          hoverBorderWidth: 5,
-          shadowOffsetX: 3,
-          shadowOffsetY: 3,
-          shadowBlur: 15,
-          shadowColor: "rgba(0, 0, 0, 0.2)",
         },
       ],
     };
@@ -680,11 +616,6 @@ function App() {
           tension: 0.4,
           fill: true,
           borderWidth: 3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          pointBackgroundColor: "#667eea",
-          pointBorderColor: "#fff",
-          pointBorderWidth: 2,
         },
         {
           label: "Pressure Trend",
@@ -694,11 +625,6 @@ function App() {
           tension: 0.4,
           fill: true,
           borderWidth: 3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          pointBackgroundColor: "#4facfe",
-          pointBorderColor: "#fff",
-          pointBorderWidth: 2,
         },
         {
           label: "Temperature Trend",
@@ -708,11 +634,6 @@ function App() {
           tension: 0.4,
           fill: true,
           borderWidth: 3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          pointBackgroundColor: "#fa709a",
-          pointBorderColor: "#fff",
-          pointBorderWidth: 2,
         },
       ],
     };
@@ -770,15 +691,8 @@ function App() {
       intersect: false,
     },
     animation: {
-      duration: 1500,
+      duration: 1000,
       easing: "easeInOutCubic",
-      delay: (context) => {
-        let delay = 0;
-        if (context.type === "data" && context.mode === "default") {
-          delay = context.dataIndex * 100;
-        }
-        return delay;
-      },
     },
     plugins: {
       legend: {
@@ -794,8 +708,6 @@ function App() {
           usePointStyle: true,
           pointStyle: "rectRounded",
           color: "#1e293b",
-          boxWidth: 12,
-          boxHeight: 12,
         },
       },
       tooltip: {
@@ -807,27 +719,6 @@ function App() {
         borderColor: "rgba(102, 126, 234, 0.6)",
         borderWidth: 3,
         cornerRadius: 12,
-        displayColors: true,
-        boxWidth: 12,
-        boxHeight: 12,
-        usePointStyle: true,
-        callbacks: {
-          label: function (context) {
-            let label = context.dataset.label || "";
-            if (label) {
-              label += ": ";
-            }
-            if (context.parsed.y !== null) {
-              label += context.parsed.y + " units";
-            }
-            return label;
-          },
-          afterLabel: function (context) {
-            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-            const percentage = ((context.parsed.y / total) * 100).toFixed(1);
-            return `(${percentage}% of total)`;
-          },
-        },
       },
     },
     scales:
@@ -844,12 +735,6 @@ function App() {
                 font: { size: 13, weight: "700" },
                 color: "#64748b",
                 padding: 12,
-                callback: function (value) {
-                  return value + " ";
-                },
-              },
-              border: {
-                display: false,
               },
             },
             x: {
@@ -858,11 +743,6 @@ function App() {
                 font: { size: 13, weight: "700" },
                 color: "#1e293b",
                 padding: 12,
-                maxRotation: 45,
-                minRotation: 0,
-              },
-              border: {
-                display: false,
               },
             },
           }
@@ -926,7 +806,7 @@ function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${theme === "dark" ? "dark-mode" : ""}`}>
       {/* Notifications */}
       <div className="notifications-container">
         <AnimatePresence>
@@ -955,7 +835,7 @@ function App() {
         </AnimatePresence>
       </div>
 
-      {/* Header with controls */}
+      {/* Header */}
       <header className="app-header">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -969,18 +849,19 @@ function App() {
         </motion.div>
 
         <div className="header-controls">
-          {/* NEW FEATURE 4: Enhanced Theme Toggle */}
-          <div className="theme-toggle-container">
-            <button className="theme-toggle" onClick={toggleTheme}>
-              <span className="theme-icon sun-icon">☀️</span>
-              <span className="theme-icon moon-icon">🌙</span>
-            </button>
-          </div>
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            title="Toggle Theme"
+          >
+            {theme === "light" ? "🌙" : "☀️"}
+          </button>
           <button
             className="alerts-toggle"
             onClick={() => setShowAlerts(!showAlerts)}
+            title="View Alerts"
           >
-            🔔{" "}
+            🔔
             {allAlerts.length > 0 && (
               <span className="alert-badge">{allAlerts.length}</span>
             )}
@@ -995,7 +876,7 @@ function App() {
         </div>
       </header>
 
-      {/* Alerts Panel - NEW FEATURE 5: Shows predictive alerts */}
+      {/* Alerts Panel */}
       <AnimatePresence>
         {showAlerts && allAlerts.length > 0 && (
           <motion.div
@@ -1021,34 +902,15 @@ function App() {
               {allAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className={`alert-card alert-${alert.alert_type.toLowerCase()} ${alert.resolved ? "resolved" : ""} ${alert.alert_type === "PREDICTIVE" ? "predictive-alert" : ""}`}
+                  className={`alert-card alert-${alert.alert_type.toLowerCase()} ${alert.resolved ? "resolved" : ""}`}
                 >
                   <div className="alert-header">
                     <span className="alert-icon">
-                      {alert.alert_type === "CRITICAL"
-                        ? "🚨"
-                        : alert.alert_type === "PREDICTIVE"
-                          ? "🔮"
-                          : "⚠️"}
+                      {alert.alert_type === "CRITICAL" ? "🚨" : "⚠️"}
                     </span>
                     <strong>{alert.equipment_name}</strong>
-                    {/* NEW FEATURE 5: Confidence score display */}
-                    {alert.confidence_score && (
-                      <span className="confidence-badge">
-                        {alert.confidence_score}% confidence
-                      </span>
-                    )}
                   </div>
                   <p className="alert-message">{alert.message}</p>
-                  {/* NEW FEATURE 5: Predicted failure date */}
-                  {alert.predicted_failure_date && (
-                    <div className="predicted-date">
-                      📅 Predicted:{" "}
-                      {new Date(
-                        alert.predicted_failure_date,
-                      ).toLocaleDateString()}
-                    </div>
-                  )}
                   {alert.recommendation && (
                     <div className="alert-recommendation">
                       💡 {alert.recommendation}
@@ -1114,23 +976,17 @@ function App() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="card uploading"
+          className="card"
         >
           <div className="loading-spinner"></div>
           <div className="loading">Analyzing your data with AI...</div>
-          <div className="loading-steps">
-            <div className="step">✓ Reading CSV file</div>
-            <div className="step active">⚙️ Running statistical analysis</div>
-            <div className="step">⏳ Detecting anomalies</div>
-            <div className="step">⏳ Generating insights</div>
-          </div>
         </motion.div>
       )}
 
       {/* Main Content */}
       {summary && !isUploading && (
         <>
-          {/* Navigation Tabs - NEW FEATURE 3: Added rankings tab */}
+          {/* Navigation Tabs */}
           <div className="tabs-container">
             {[
               "dashboard",
@@ -1146,26 +1002,20 @@ function App() {
                 className={`tab-button ${activeTab === tab ? "active" : ""}`}
                 onClick={() => setActiveTab(tab)}
               >
-                {tab === "dashboard" && "📊"}
-                {tab === "analytics" && "📈"}
-                {tab === "equipment" && "🔧"}
-                {tab === "rankings" && "🏆"}
-                {tab === "trends" && "📉"}
-                {tab === "maintenance" && "🛠️"}
-                {tab === "reports" && "📄"}{" "}
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === "dashboard" && "📊 Dashboard"}
+                {tab === "analytics" && "📈 Analytics"}
+                {tab === "equipment" && "🔧 Equipment"}
+                {tab === "rankings" && "🏆 Rankings"}
+                {tab === "trends" && "📉 Trends"}
+                {tab === "maintenance" && "🛠️ Maintenance"}
+                {tab === "reports" && "📄 Reports"}
               </button>
             ))}
           </div>
 
           {/* Dashboard Tab */}
           {activeTab === "dashboard" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              {/* Summary Stats - NEW FEATURE 1: Animated Counters */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
                 <div className="card-header">
                   <h3>📊 Data Summary</h3>
@@ -1176,7 +1026,6 @@ function App() {
                     >
                       📜 {showHistory ? "Hide" : "Show"} History
                     </button>
-                    {/* NEW FEATURE 2: Excel export button */}
                     <button className="btn btn-success" onClick={downloadExcel}>
                       📊 Export Excel
                     </button>
@@ -1186,230 +1035,78 @@ function App() {
                   </div>
                 </div>
                 <div className="summary-grid">
-                  <motion.div
-                    whileHover={{ scale: 1.05, y: -5 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="stat-item stat-primary"
-                    style={{ cursor: "pointer" }}
-                  >
+                  <div className="stat-item stat-primary">
                     <div className="stat-icon">📝</div>
                     <div className="stat-content">
                       <div className="stat-label">Total Records</div>
-                      <div className="stat-value">
-                        <AnimatedCounter value={summary.total_records} />
-                      </div>
+                      <div className="stat-value">{summary.total_records}</div>
                     </div>
-                  </motion.div>
-                  <motion.div
-                    whileHover={{ scale: 1.05, y: -5 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="stat-item stat-info"
-                    style={{ cursor: "pointer" }}
-                  >
+                  </div>
+                  <div className="stat-item stat-info">
                     <div className="stat-icon">💧</div>
                     <div className="stat-content">
                       <div className="stat-label">Avg Flowrate</div>
                       <div className="stat-value">
-                        <AnimatedCounter value={summary.avg_flowrate} />
+                        {summary.avg_flowrate.toFixed(2)}
                       </div>
                       <div className="stat-unit">L/min</div>
                     </div>
-                  </motion.div>
-                  <motion.div
-                    whileHover={{ scale: 1.05, y: -5 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="stat-item stat-warning"
-                    style={{ cursor: "pointer" }}
-                  >
+                  </div>
+                  <div className="stat-item stat-warning">
                     <div className="stat-icon">⚡</div>
                     <div className="stat-content">
                       <div className="stat-label">Avg Pressure</div>
                       <div className="stat-value">
-                        <AnimatedCounter value={summary.avg_pressure} />
+                        {summary.avg_pressure.toFixed(2)}
                       </div>
                       <div className="stat-unit">bar</div>
                     </div>
-                  </motion.div>
-                  <motion.div
-                    whileHover={{ scale: 1.05, y: -5 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="stat-item stat-danger"
-                    style={{ cursor: "pointer" }}
-                  >
+                  </div>
+                  <div className="stat-item stat-danger">
                     <div className="stat-icon">🌡️</div>
                     <div className="stat-content">
                       <div className="stat-label">Avg Temperature</div>
                       <div className="stat-value">
-                        <AnimatedCounter value={summary.avg_temperature} />
+                        {summary.avg_temperature.toFixed(2)}
                       </div>
                       <div className="stat-unit">°C</div>
                     </div>
-                  </motion.div>
+                  </div>
                 </div>
               </div>
 
-              {/* Upload History */}
-              <AnimatePresence>
-                {showHistory && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="card"
-                  >
-                    <div className="card-header">
-                      <h3>📜 Upload History (Last 10)</h3>
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => {
-                          console.log("Current history:", history);
-                          fetchHistory();
-                        }}
-                      >
-                        🔄 Refresh
-                      </button>
-                    </div>
-
-                    {history.length === 0 ? (
-                      <div className="empty-state" style={{ padding: "40px" }}>
-                        <div className="empty-icon">📊</div>
-                        <h3>No History Available</h3>
-                        <p>Upload CSV files to see your history here.</p>
-                        <p
-                          style={{
-                            fontSize: "0.85rem",
-                            color: "#94a3b8",
-                            marginTop: "10px",
-                          }}
-                        >
-                          History will appear after you upload your first CSV
-                          file.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="history-table">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Date</th>
-                              <th>Records</th>
-                              <th>Flowrate</th>
-                              <th>Pressure</th>
-                              <th>Temperature</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {Array.isArray(history) &&
-                              history.map((item, index) => (
-                                <motion.tr
-                                  key={item.id || index}
-                                  initial={{ opacity: 0, x: -20 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: index * 0.05 }}
-                                >
-                                  <td>
-                                    {new Date(
-                                      item.uploaded_at,
-                                    ).toLocaleString()}
-                                  </td>
-                                  <td>{item.total_records}</td>
-                                  <td>{item.avg_flowrate.toFixed(2)}</td>
-                                  <td>{item.avg_pressure.toFixed(2)}</td>
-                                  <td>{item.avg_temperature.toFixed(2)}</td>
-                                </motion.tr>
-                              ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Equipment Distribution Chart - NEW FEATURE 6: Fullscreen button */}
-              <div className="card" style={{ position: "relative" }}>
+              {/* Equipment Distribution Chart */}
+              <div className="card">
                 <div className="card-header">
                   <h3>📈 Equipment Distribution</h3>
                   <div className="chart-controls">
                     {[
-                      { value: "bar", label: "📊 Bar", emoji: "📊" },
-                      { value: "line", label: "📈 Line", emoji: "📈" },
-                      { value: "doughnut", label: "🍩 Doughnut", emoji: "🍩" },
+                      { value: "bar", label: "Bar", emoji: "📊" },
+                      { value: "line", label: "Line", emoji: "📈" },
+                      { value: "doughnut", label: "Doughnut", emoji: "🍩" },
                     ].map((chart) => (
                       <button
                         key={chart.value}
                         className={`chart-btn ${selectedChart === chart.value ? "active" : ""}`}
                         onClick={() => setSelectedChart(chart.value)}
                       >
-                        <span
-                          style={{ fontSize: "1.2rem", marginRight: "6px" }}
-                        >
-                          {chart.emoji}
-                        </span>
-                        {chart.label.replace(/^[\p{Emoji}]\s*/u, "")}
+                        {chart.emoji} {chart.label}
                       </button>
                     ))}
                   </div>
                 </div>
-                {/* NEW FEATURE 6: Fullscreen expand button */}
-                <button
-                  className="chart-expand-btn"
-                  onClick={() => setFullscreenChart("distribution")}
-                >
-                  🔍 Fullscreen
-                </button>
-                <div
-                  className="chart-container"
-                  style={{ position: "relative", minHeight: "400px" }}
-                >
+                <div className="chart-container">
                   {selectedChart === "bar" && (
-                    <Bar
-                      data={getChartData()}
-                      options={{
-                        ...chartOptions,
-                        plugins: {
-                          ...chartOptions.plugins,
-                          datalabels: {
-                            display: true,
-                            color: "#fff",
-                            font: { weight: "bold", size: 14 },
-                            formatter: (value) => value,
-                            anchor: "end",
-                            align: "top",
-                          },
-                        },
-                      }}
-                    />
+                    <Bar data={getChartData()} options={chartOptions} />
                   )}
                   {selectedChart === "line" && (
-                    <Line
-                      data={getChartData()}
-                      options={{
-                        ...chartOptions,
-                        elements: {
-                          line: {
-                            borderJoinStyle: "round",
-                            borderCapStyle: "round",
-                          },
-                        },
-                      }}
-                    />
+                    <Line data={getChartData()} options={chartOptions} />
                   )}
                   {selectedChart === "doughnut" && (
                     <div style={{ maxWidth: "500px", margin: "0 auto" }}>
                       <Doughnut
                         data={getChartData()}
-                        options={{
-                          ...chartOptions,
-                          cutout: "65%",
-                          plugins: {
-                            ...chartOptions.plugins,
-                            legend: {
-                              ...chartOptions.plugins.legend,
-                              position: "right",
-                            },
-                          },
-                        }}
+                        options={{ ...chartOptions, cutout: "65%" }}
                       />
                     </div>
                   )}
@@ -1420,42 +1117,17 @@ function App() {
 
           {/* Analytics Tab */}
           {activeTab === "analytics" && advancedAnalytics && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="analytics-grid">
-                {/* Performance Radar */}
                 <div className="card">
                   <h3>🎯 Performance Overview</h3>
                   <div className="chart-container">
                     {getRadarData() && (
-                      <Radar
-                        data={getRadarData()}
-                        options={{
-                          ...chartOptions,
-                          scales: {
-                            r: {
-                              beginAtZero: true,
-                              max: 150,
-                              grid: {
-                                color: "rgba(148, 163, 184, 0.2)",
-                              },
-                              ticks: {
-                                backdropColor: "transparent",
-                                color: "#64748b",
-                                font: { weight: "600" },
-                              },
-                            },
-                          },
-                        }}
-                      />
+                      <Radar data={getRadarData()} options={chartOptions} />
                     )}
                   </div>
                 </div>
 
-                {/* Health Scores */}
                 <div className="card">
                   <h3>💚 Equipment Health Scores</h3>
                   <div className="health-scores">
@@ -1475,7 +1147,7 @@ function App() {
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: `${item.score}%` }}
-                              transition={{ duration: 1, delay: index * 0.1 }}
+                              transition={{ duration: 1 }}
                               className="health-score-fill"
                               style={{
                                 backgroundColor:
@@ -1483,9 +1155,7 @@ function App() {
                                     ? "#10b981"
                                     : item.score >= 75
                                       ? "#4facfe"
-                                      : item.score >= 60
-                                        ? "#fee140"
-                                        : "#fa709a",
+                                      : "#fee140",
                               }}
                             />
                           </div>
@@ -1496,84 +1166,13 @@ function App() {
                       ))}
                   </div>
                 </div>
-
-                {/* Correlations */}
-                <div className="card">
-                  <h3>🔗 Parameter Correlations</h3>
-                  <div className="correlations-grid">
-                    {advancedAnalytics.correlations &&
-                      Object.entries(advancedAnalytics.correlations).map(
-                        ([key, value]) => (
-                          <div key={key} className="correlation-item">
-                            <div className="correlation-label">
-                              {key
-                                .replace("_", " vs ")
-                                .replace(/([A-Z])/g, " $1")
-                                .trim()}
-                            </div>
-                            <div className="correlation-value">
-                              <div
-                                className="correlation-bar"
-                                style={{
-                                  width: `${Math.abs(value) * 100}%`,
-                                  backgroundColor:
-                                    value > 0.5
-                                      ? "#10b981"
-                                      : value > 0
-                                        ? "#4facfe"
-                                        : "#fa709a",
-                                }}
-                              />
-                              <span>{(value * 100).toFixed(1)}%</span>
-                            </div>
-                          </div>
-                        ),
-                      )}
-                  </div>
-                </div>
-
-                {/* Anomalies */}
-                {advancedAnalytics.anomalies &&
-                  advancedAnalytics.anomalies.length > 0 && (
-                    <div className="card full-width">
-                      <h3>⚠️ Detected Anomalies</h3>
-                      <div className="anomalies-list">
-                        {advancedAnalytics.anomalies.map((anomaly, index) => (
-                          <div
-                            key={index}
-                            className={`anomaly-item anomaly-${anomaly.severity.toLowerCase()}`}
-                          >
-                            <div className="anomaly-header">
-                              <span className="anomaly-icon">
-                                {anomaly.severity === "High" ? "🚨" : "⚠️"}
-                              </span>
-                              <strong>{anomaly.equipment}</strong>
-                              <span className="anomaly-badge">
-                                {anomaly.severity}
-                              </span>
-                            </div>
-                            <p>
-                              {anomaly.parameter}:{" "}
-                              <strong>{anomaly.value}</strong>
-                              <br />
-                              Expected range: {anomaly.expected_range}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
               </div>
             </motion.div>
           )}
 
-          {/* Equipment Details Tab */}
+          {/* Equipment Tab */}
           {activeTab === "equipment" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
                 <div className="card-header">
                   <h3>🔍 Equipment Details</h3>
@@ -1596,303 +1195,290 @@ function App() {
                       <option value="pressure">Sort by Pressure</option>
                       <option value="temperature">Sort by Temperature</option>
                     </select>
-                    <button
-                      className={`btn ${compareMode ? "btn-success" : "btn-secondary"}`}
-                      onClick={() => {
-                        setCompareMode(!compareMode);
-                        if (compareMode) {
-                          setSelectedForCompare([]);
-                          setComparisonData(null);
-                        }
-                      }}
-                    >
-                      {compareMode ? "✓ Comparing" : "📊 Compare Mode"}
-                    </button>
-                    {compareMode && selectedForCompare.length >= 2 && (
-                      <button
-                        className="btn btn-primary"
-                        onClick={compareEquipment}
-                      >
-                        Compare {selectedForCompare.length} Items
-                      </button>
-                    )}
                   </div>
                 </div>
-
-                {/* Comparison Results */}
-                {comparisonData && (
-                  <div className="comparison-results">
-                    <h4>📊 Comparison Results</h4>
-                    <div className="chart-container">
-                      <Bar
-                        data={getComparisonData()}
-                        options={{
-                          ...chartOptions,
-                          plugins: {
-                            ...chartOptions.plugins,
-                            legend: { display: true, position: "top" },
-                          },
-                        }}
-                      />
-                    </div>
-                    <div className="comparison-table">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Equipment</th>
-                            <th>Type</th>
-                            <th>Flowrate</th>
-                            <th>Pressure</th>
-                            <th>Temperature</th>
-                            <th>Health Score</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {comparisonData.map((eq, index) => (
-                            <tr key={index}>
-                              <td>
-                                <strong>{eq.name}</strong>
-                              </td>
-                              <td>{eq.type}</td>
-                              <td>{eq.flowrate}</td>
-                              <td>{eq.pressure}</td>
-                              <td>{eq.temperature}</td>
-                              <td>
-                                <span
-                                  className="health-badge"
-                                  style={{
-                                    backgroundColor:
-                                      eq.health_score >= 90
-                                        ? "#10b981"
-                                        : eq.health_score >= 75
-                                          ? "#4facfe"
-                                          : eq.health_score >= 60
-                                            ? "#fee140"
-                                            : "#fa709a",
-                                  }}
-                                >
-                                  {eq.health_score}%
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
 
                 <div className="equipment-grid">
-                  <AnimatePresence>
-                    {sortedData.map((item, index) => {
-                      const status = getHealthStatus(
-                        item.flowrate,
-                        item.pressure,
-                        item.temperature,
-                      );
-                      const healthScore = getHealthScore(
-                        item.flowrate,
-                        item.pressure,
-                        item.temperature,
-                      );
-                      const isSelected = selectedForCompare.includes(item.name);
+                  {sortedData.map((item, index) => {
+                    const status = getHealthStatus(
+                      item.flowrate,
+                      item.pressure,
+                      item.temperature,
+                    );
+                    const healthScore = getHealthScore(
+                      item.flowrate,
+                      item.pressure,
+                      item.temperature,
+                    );
 
-                      return (
-                        <motion.div
-                          key={index}
-                          layout
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          whileHover={{ scale: 1.05, y: -5 }}
-                          transition={{ duration: 0.2 }}
-                          className={`equipment-card status-${status} ${isSelected ? "selected" : ""}`}
-                          onClick={() => {
-                            if (compareMode) {
-                              toggleCompareSelection(item.name);
-                            } else {
-                              setSelectedEquipment(item);
-                            }
-                          }}
-                        >
-                          {compareMode && (
-                            <div className="compare-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() =>
-                                  toggleCompareSelection(item.name)
-                                }
-                              />
-                            </div>
-                          )}
-                          <div className="equipment-header">
-                            <h4>{item.name}</h4>
-                            <span className={`status-badge ${status}`}>
-                              {status === "normal"
-                                ? "✓"
-                                : status === "high"
-                                  ? "⚠"
-                                  : "⬇"}
-                              {status.toUpperCase()}
+                    return (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className={`equipment-card status-${status}`}
+                        onClick={() => setSelectedEquipment(item)}
+                      >
+                        <div className="equipment-header">
+                          <h4>{item.name}</h4>
+                          <span className={`status-badge ${status}`}>
+                            {status === "normal"
+                              ? "✓"
+                              : status === "high"
+                                ? "⚠"
+                                : "⬇"}
+                            {status.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="equipment-type">{item.type}</div>
+
+                        <div className="health-circle-container">
+                          <svg className="health-circle" viewBox="0 0 100 100">
+                            <circle
+                              className="health-circle-bg"
+                              cx="50"
+                              cy="50"
+                              r="40"
+                            />
+                            <motion.circle
+                              className="health-circle-fill"
+                              cx="50"
+                              cy="50"
+                              r="40"
+                              initial={{ strokeDashoffset: 251.2 }}
+                              animate={{
+                                strokeDashoffset:
+                                  251.2 - (251.2 * healthScore) / 100,
+                              }}
+                              transition={{ duration: 1 }}
+                              style={{
+                                stroke:
+                                  healthScore >= 90
+                                    ? "#10b981"
+                                    : healthScore >= 75
+                                      ? "#4facfe"
+                                      : "#fee140",
+                              }}
+                            />
+                            <text
+                              x="50"
+                              y="50"
+                              className="health-circle-text"
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                            >
+                              {healthScore}%
+                            </text>
+                          </svg>
+                          <div className="health-label">Health Score</div>
+                        </div>
+
+                        <div className="equipment-metrics">
+                          <div className="metric">
+                            <span className="metric-label">Flowrate</span>
+                            <span className="metric-value">
+                              {item.flowrate}
                             </span>
                           </div>
-                          <div className="equipment-type">{item.type}</div>
-
-                          {/* Health Score Circle */}
-                          <div className="health-circle-container">
-                            <svg
-                              className="health-circle"
-                              viewBox="0 0 100 100"
-                            >
-                              <circle
-                                className="health-circle-bg"
-                                cx="50"
-                                cy="50"
-                                r="40"
-                              />
-                              <motion.circle
-                                className="health-circle-fill"
-                                cx="50"
-                                cy="50"
-                                r="40"
-                                initial={{ strokeDashoffset: 251.2 }}
-                                animate={{
-                                  strokeDashoffset:
-                                    251.2 - (251.2 * healthScore) / 100,
-                                }}
-                                transition={{
-                                  duration: 1,
-                                  delay: index * 0.05,
-                                }}
-                                style={{
-                                  stroke:
-                                    healthScore >= 90
-                                      ? "#10b981"
-                                      : healthScore >= 75
-                                        ? "#4facfe"
-                                        : healthScore >= 60
-                                          ? "#fee140"
-                                          : "#fa709a",
-                                }}
-                              />
-                              <text
-                                x="50"
-                                y="50"
-                                className="health-circle-text"
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                              >
-                                {healthScore}%
-                              </text>
-                            </svg>
-                            <div className="health-label">Health Score</div>
+                          <div className="metric">
+                            <span className="metric-label">Pressure</span>
+                            <span className="metric-value">
+                              {item.pressure}
+                            </span>
                           </div>
-
-                          <div className="equipment-metrics">
-                            <div className="metric">
-                              <span className="metric-label">Flowrate</span>
-                              <span className="metric-value">
-                                {item.flowrate}
-                              </span>
-                            </div>
-                            <div className="metric">
-                              <span className="metric-label">Pressure</span>
-                              <span className="metric-value">
-                                {item.pressure}
-                              </span>
-                            </div>
-                            <div className="metric">
-                              <span className="metric-label">Temp</span>
-                              <span className="metric-value">
-                                {item.temperature}
-                              </span>
-                            </div>
+                          <div className="metric">
+                            <span className="metric-label">Temp</span>
+                            <span className="metric-value">
+                              {item.temperature}
+                            </span>
                           </div>
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
-                {sortedData.length === 0 && (
-                  <div className="no-results">
-                    No equipment found matching "{searchTerm}"
-                  </div>
-                )}
               </div>
             </motion.div>
           )}
 
-          {/* NEW FEATURE 3: Rankings Tab */}
+          {/* Rankings Tab */}
           {activeTab === "rankings" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
-                <h3>🏆 Performance Rankings</h3>
-                <div className="rankings-container">
-                  {rankings.map((ranking, index) => (
-                    <motion.div
-                      key={ranking.rank}
-                      initial={{ opacity: 0, x: -50 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="ranking-item"
-                    >
-                      <div className="ranking-medal">
-                        {getMedalEmoji(ranking.rank)}
-                      </div>
-                      <div className="ranking-details">
-                        <div className="ranking-name">
-                          {ranking.equipment_name}
-                        </div>
-                        <div className="ranking-type">
-                          {ranking.equipment_type}
-                        </div>
-                      </div>
-                      <div className="ranking-score">
-                        <span className="score-value">
-                          <AnimatedCounter value={ranking.overall_score} />
-                        </span>
-                        <span className="score-label">Overall Score</span>
-                      </div>
-                    </motion.div>
-                  ))}
+                <div className="card-header">
+                  <h3>🏆 Performance Rankings</h3>
+                  <p
+                    style={{
+                      color: "#64748b",
+                      fontSize: "0.9rem",
+                      margin: "10px 0 0 0",
+                    }}
+                  >
+                    Equipment ranked by overall performance score
+                  </p>
                 </div>
+
+                {rankings.length > 0 ? (
+                  <>
+                    <div className="rankings-leaderboard">
+                      {rankings.slice(0, 3).map((ranking, index) => (
+                        <motion.div
+                          key={ranking.rank}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.15 }}
+                          className={`podium-item podium-${index + 1}`}
+                        >
+                          <div className="podium-medal">
+                            {getMedalEmoji(ranking.rank)}
+                          </div>
+                          <div className="podium-details">
+                            <h4>{ranking.equipment_name}</h4>
+                            <span className="podium-type">
+                              {ranking.equipment_type}
+                            </span>
+                            <div className="podium-score">
+                              <svg
+                                width="120"
+                                height="120"
+                                viewBox="0 0 120 120"
+                              >
+                                <circle
+                                  cx="60"
+                                  cy="60"
+                                  r="50"
+                                  fill="none"
+                                  stroke="#e2e8f0"
+                                  strokeWidth="10"
+                                />
+                                <motion.circle
+                                  cx="60"
+                                  cy="60"
+                                  r="50"
+                                  fill="none"
+                                  stroke={getScoreColor(ranking.overall_score)}
+                                  strokeWidth="10"
+                                  strokeLinecap="round"
+                                  strokeDasharray={314}
+                                  initial={{ strokeDashoffset: 314 }}
+                                  animate={{
+                                    strokeDashoffset:
+                                      314 - (314 * ranking.overall_score) / 100,
+                                  }}
+                                  transition={{ duration: 1.5 }}
+                                  style={{
+                                    transformOrigin: "center",
+                                    transform: "rotate(-90deg)",
+                                  }}
+                                />
+                                <text
+                                  x="60"
+                                  y="60"
+                                  textAnchor="middle"
+                                  dominantBaseline="central"
+                                  fontSize="24"
+                                  fontWeight="bold"
+                                  fill="#1e293b"
+                                >
+                                  {ranking.overall_score.toFixed(1)}
+                                </text>
+                              </svg>
+                            </div>
+                            <div className="podium-metrics">
+                              <div className="metric-badge">
+                                <span className="metric-label">Efficiency</span>
+                                <span className="metric-rank">
+                                  #{ranking.efficiency_rank}
+                                </span>
+                              </div>
+                              <div className="metric-badge">
+                                <span className="metric-label">
+                                  Performance
+                                </span>
+                                <span className="metric-rank">
+                                  #{ranking.performance_rank}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    {rankings.length > 3 && (
+                      <div className="rankings-table">
+                        <h4
+                          style={{ margin: "40px 0 20px 0", color: "#1e293b" }}
+                        >
+                          Complete Rankings
+                        </h4>
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Rank</th>
+                              <th>Equipment</th>
+                              <th>Type</th>
+                              <th>Overall Score</th>
+                              <th>Efficiency Rank</th>
+                              <th>Performance Rank</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rankings.map((ranking) => (
+                              <tr key={ranking.rank}>
+                                <td>
+                                  <strong>{getMedalEmoji(ranking.rank)}</strong>
+                                </td>
+                                <td>{ranking.equipment_name}</td>
+                                <td>
+                                  <span className="type-badge">
+                                    {ranking.equipment_type}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="score-cell">
+                                    <div
+                                      className="score-bar"
+                                      style={{
+                                        width: `${ranking.overall_score}%`,
+                                        backgroundColor: getScoreColor(
+                                          ranking.overall_score,
+                                        ),
+                                      }}
+                                    />
+                                    <span className="score-text">
+                                      {ranking.overall_score.toFixed(1)}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td>#{ranking.efficiency_rank}</td>
+                                <td>#{ranking.performance_rank}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="empty-state">
+                    <div className="empty-icon">🏆</div>
+                    <h3>No Rankings Available</h3>
+                    <p>Upload data to see equipment rankings</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
 
           {/* Trends Tab */}
           {activeTab === "trends" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
                 <h3>📉 Historical Trends (Last 30 Days)</h3>
                 <div className="chart-container">
                   {getTrendData() ? (
-                    <Line
-                      data={getTrendData()}
-                      options={{
-                        ...chartOptions,
-                        interaction: {
-                          mode: "index",
-                          intersect: false,
-                        },
-                        plugins: {
-                          ...chartOptions.plugins,
-                          legend: {
-                            display: true,
-                            position: "top",
-                          },
-                        },
-                      }}
-                    />
+                    <Line data={getTrendData()} options={chartOptions} />
                   ) : (
                     <div className="empty-state">
                       <div className="empty-icon">📊</div>
@@ -1907,11 +1493,7 @@ function App() {
 
           {/* Maintenance Tab */}
           {activeTab === "maintenance" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
                 <div className="card-header">
                   <h3>🛠️ Maintenance Schedule</h3>
@@ -1970,13 +1552,6 @@ function App() {
                               <option value="CANCELLED">Cancelled</option>
                             </select>
                           </p>
-                          {schedule.parts_needed &&
-                            schedule.parts_needed.length > 0 && (
-                              <p>
-                                <strong>Parts:</strong>{" "}
-                                {schedule.parts_needed.join(", ")}
-                              </p>
-                            )}
                           <p className="description">{schedule.description}</p>
                         </div>
                       </div>
@@ -1993,13 +1568,9 @@ function App() {
             </motion.div>
           )}
 
-          {/* Reports Tab - NEW FEATURE 2 & 7: Excel export and Email reports */}
+          {/* Reports Tab */}
           {activeTab === "reports" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="reports-grid">
                 <div className="report-card" onClick={downloadPDF}>
                   <div className="report-icon">📄</div>
@@ -2013,70 +1584,13 @@ function App() {
                   <p>Raw data export for further analysis</p>
                   <button className="btn btn-success">Export CSV</button>
                 </div>
-                {/* NEW FEATURE 2: Excel Export */}
                 <div className="report-card" onClick={downloadExcel}>
                   <div className="report-icon">📈</div>
                   <h4>Excel Report</h4>
                   <p>Detailed report with multiple sheets</p>
                   <button className="btn btn-success">Export Excel</button>
                 </div>
-                {/* NEW FEATURE 7: Email Reports */}
-                <div
-                  className="report-card"
-                  onClick={() => setShowEmailModal(true)}
-                >
-                  <div className="report-icon">📧</div>
-                  <h4>Email Report</h4>
-                  <p>Schedule automated email reports</p>
-                  <button className="btn btn-secondary">Configure</button>
-                </div>
               </div>
-
-              {/* NEW FEATURE 7: Email Schedules List */}
-              {emailSchedules.length > 0 && (
-                <div className="card">
-                  <h3>📧 Scheduled Email Reports</h3>
-                  <div className="email-schedules-list">
-                    {emailSchedules.map((schedule) => (
-                      <div key={schedule.id} className="email-schedule-card">
-                        <div className="schedule-header">
-                          <span className="schedule-frequency">
-                            {schedule.frequency}
-                          </span>
-                          <div className="schedule-actions">
-                            <button
-                              className={`schedule-toggle ${schedule.active ? "active" : ""}`}
-                              onClick={() =>
-                                toggleEmailSchedule(
-                                  schedule.id,
-                                  schedule.active,
-                                )
-                              }
-                            >
-                              {schedule.active ? "✓ Active" : "Paused"}
-                            </button>
-                            <button
-                              className="schedule-delete"
-                              onClick={() => deleteEmailSchedule(schedule.id)}
-                            >
-                              🗑️ Delete
-                            </button>
-                          </div>
-                        </div>
-                        <p>
-                          <strong>Email:</strong> {schedule.email}
-                        </p>
-                        {schedule.last_sent && (
-                          <p>
-                            <strong>Last Sent:</strong>{" "}
-                            {new Date(schedule.last_sent).toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </motion.div>
           )}
         </>
@@ -2094,359 +1608,9 @@ function App() {
           <p>
             Upload a CSV file to start analyzing your chemical equipment
             parameters
-            <br />
-            <small>
-              Supported format: Equipment Name, Type, Flowrate, Pressure,
-              Temperature
-            </small>
           </p>
         </motion.div>
       )}
-
-      {/* Equipment Detail Modal */}
-      <AnimatePresence>
-        {selectedEquipment && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="modal-overlay"
-            onClick={() => setSelectedEquipment(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="modal-content"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                className="modal-close"
-                onClick={() => setSelectedEquipment(null)}
-              >
-                ✕
-              </button>
-              <h2>{selectedEquipment.name}</h2>
-              <div className="modal-details">
-                <div className="detail-item">
-                  <span className="detail-label">Type</span>
-                  <span className="detail-value">{selectedEquipment.type}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Flowrate</span>
-                  <span className="detail-value">
-                    {selectedEquipment.flowrate} L/min
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Pressure</span>
-                  <span className="detail-value">
-                    {selectedEquipment.pressure} bar
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Temperature</span>
-                  <span className="detail-value">
-                    {selectedEquipment.temperature}°C
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Health Score</span>
-                  <span className="detail-value">
-                    {getHealthScore(
-                      selectedEquipment.flowrate,
-                      selectedEquipment.pressure,
-                      selectedEquipment.temperature,
-                    )}
-                    %
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Maintenance Modal */}
-      <AnimatePresence>
-        {showMaintenanceModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="modal-overlay"
-            onClick={() => setShowMaintenanceModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="modal-content"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                className="modal-close"
-                onClick={() => setShowMaintenanceModal(false)}
-              >
-                ✕
-              </button>
-              <h2>Schedule Maintenance</h2>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.target);
-                  createMaintenance({
-                    equipment_name: formData.get("equipment_name"),
-                    equipment_type: formData.get("equipment_type"),
-                    scheduled_date: formData.get("scheduled_date"),
-                    priority: formData.get("priority"),
-                    estimated_hours: parseFloat(
-                      formData.get("estimated_hours"),
-                    ),
-                    description: formData.get("description"),
-                    parts_needed: formData
-                      .get("parts_needed")
-                      .split(",")
-                      .map((p) => p.trim())
-                      .filter((p) => p),
-                  });
-                }}
-                className="maintenance-form"
-              >
-                <div className="form-group">
-                  <label>Equipment Name</label>
-                  <input type="text" name="equipment_name" required />
-                </div>
-                <div className="form-group">
-                  <label>Equipment Type</label>
-                  <select name="equipment_type" required>
-                    <option value="Pump">Pump</option>
-                    <option value="Compressor">Compressor</option>
-                    <option value="Valve">Valve</option>
-                    <option value="HeatExchanger">Heat Exchanger</option>
-                    <option value="Reactor">Reactor</option>
-                    <option value="Condenser">Condenser</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Scheduled Date</label>
-                  <input type="date" name="scheduled_date" required />
-                </div>
-                <div className="form-group">
-                  <label>Priority</label>
-                  <select name="priority" required>
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                    <option value="CRITICAL">Critical</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Estimated Hours</label>
-                  <input
-                    type="number"
-                    name="estimated_hours"
-                    step="0.5"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Parts Needed (comma-separated)</label>
-                  <input
-                    type="text"
-                    name="parts_needed"
-                    placeholder="e.g., Filter, Seal, Bearing"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea name="description" rows="3" required></textarea>
-                </div>
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-success">
-                    Schedule
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setShowMaintenanceModal(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* NEW FEATURE 6: Fullscreen Chart Modal */}
-      <AnimatePresence>
-        {fullscreenChart && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="chart-fullscreen-overlay"
-            onClick={() => setFullscreenChart(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="chart-fullscreen-content"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                className="chart-fullscreen-close"
-                onClick={() => setFullscreenChart(null)}
-              >
-                ✕
-              </button>
-              <h2>📈 Equipment Distribution - Fullscreen View</h2>
-              <div style={{ height: "70vh", marginTop: "30px" }}>
-                {selectedChart === "bar" && (
-                  <Bar
-                    data={getChartData()}
-                    options={{
-                      ...chartOptions,
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                )}
-                {selectedChart === "line" && (
-                  <Line
-                    data={getChartData()}
-                    options={{
-                      ...chartOptions,
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                )}
-                {selectedChart === "doughnut" && (
-                  <Doughnut
-                    data={getChartData()}
-                    options={{
-                      ...chartOptions,
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* NEW FEATURE 7: Email Report Modal */}
-      <AnimatePresence>
-        {showEmailModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="modal-overlay"
-            onClick={() => setShowEmailModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              className="modal-content"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                className="modal-close"
-                onClick={() => setShowEmailModal(false)}
-              >
-                ✕
-              </button>
-              <h2>📧 Schedule Email Reports</h2>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.target);
-                  scheduleEmailReport({
-                    frequency: formData.get("frequency"),
-                    email: formData.get("email"),
-                    include_summary: formData.get("include_summary") === "on",
-                    include_charts: formData.get("include_charts") === "on",
-                    include_alerts: formData.get("include_alerts") === "on",
-                    include_analytics:
-                      formData.get("include_analytics") === "on",
-                  });
-                }}
-                className="email-schedule-form"
-              >
-                <div className="form-group">
-                  <label>Email Address</label>
-                  <input
-                    type="email"
-                    name="email"
-                    required
-                    placeholder="your@email.com"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Frequency</label>
-                  <select name="frequency" required>
-                    <option value="DAILY">Daily</option>
-                    <option value="WEEKLY">Weekly</option>
-                    <option value="MONTHLY">Monthly</option>
-                  </select>
-                </div>
-                <div className="checkbox-group">
-                  <label>Include in Report:</label>
-                  <div className="checkbox-item">
-                    <input
-                      type="checkbox"
-                      name="include_summary"
-                      defaultChecked
-                    />
-                    <label>Summary Statistics</label>
-                  </div>
-                  <div className="checkbox-item">
-                    <input
-                      type="checkbox"
-                      name="include_charts"
-                      defaultChecked
-                    />
-                    <label>Charts & Visualizations</label>
-                  </div>
-                  <div className="checkbox-item">
-                    <input
-                      type="checkbox"
-                      name="include_alerts"
-                      defaultChecked
-                    />
-                    <label>Active Alerts</label>
-                  </div>
-                  <div className="checkbox-item">
-                    <input
-                      type="checkbox"
-                      name="include_analytics"
-                      defaultChecked
-                    />
-                    <label>Advanced Analytics</label>
-                  </div>
-                </div>
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-success">
-                    Schedule Report
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setShowEmailModal(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
