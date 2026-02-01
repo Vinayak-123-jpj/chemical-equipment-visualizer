@@ -392,30 +392,104 @@ function App() {
 
     const labels = Object.keys(summary.type_distribution);
     const data = Object.values(summary.type_distribution);
-    const colors = [
-      "#667eea",
-      "#764ba2",
-      "#f093fb",
-      "#4facfe",
-      "#43e97b",
-      "#fa709a",
-      "#fee140",
-      "#30cfd0",
+
+    const gradientColors = [
+      { start: "#667eea", middle: "#764ba2", end: "#5568d3" },
+      { start: "#f093fb", middle: "#f5576c", end: "#d946a6" },
+      { start: "#4facfe", middle: "#00f2fe", end: "#0ea5e9" },
+      { start: "#43e97b", middle: "#38f9d7", end: "#10b981" },
+      { start: "#fa709a", middle: "#fee140", end: "#f59e0b" },
+      { start: "#30cfd0", middle: "#330867", end: "#8b5cf6" },
     ];
 
+    if (selectedChart === "line") {
+      return {
+        labels,
+        datasets: [
+          {
+            label: "Equipment Count",
+            data,
+            borderColor: "#667eea",
+            backgroundColor: (context) => {
+              const ctx = context.chart.ctx;
+              const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+              gradient.addColorStop(0, "rgba(102, 126, 234, 0.4)");
+              gradient.addColorStop(0.5, "rgba(102, 126, 234, 0.2)");
+              gradient.addColorStop(1, "rgba(102, 126, 234, 0.05)");
+              return gradient;
+            },
+            borderWidth: 4,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 8,
+            pointHoverRadius: 12,
+            pointBackgroundColor: "#667eea",
+            pointBorderColor: "#fff",
+            pointBorderWidth: 3,
+            pointHoverBackgroundColor: "#fff",
+            pointHoverBorderColor: "#667eea",
+            pointHoverBorderWidth: 4,
+            shadowOffsetX: 2,
+            shadowOffsetY: 2,
+            shadowBlur: 10,
+            shadowColor: "rgba(102, 126, 234, 0.5)",
+          },
+        ],
+      };
+    }
+
+    if (selectedChart === "doughnut") {
+      return {
+        labels,
+        datasets: [
+          {
+            label: "Equipment Count",
+            data,
+            backgroundColor: gradientColors.map((g, i) => g.start),
+            borderColor: "#fff",
+            borderWidth: 5,
+            hoverBorderWidth: 7,
+            hoverOffset: 20,
+            hoverBackgroundColor: gradientColors.map((g, i) => g.middle),
+            spacing: 3,
+            borderRadius: 8,
+          },
+        ],
+      };
+    }
+
+    // Bar chart
     return {
       labels,
       datasets: [
         {
           label: "Equipment Count",
           data,
-          backgroundColor: colors.slice(0, labels.length),
-          borderColor: colors.slice(0, labels.length).map((c) => c + "dd"),
-          borderWidth: 2,
-          borderRadius: selectedChart === "bar" ? 8 : 0,
-          hoverBackgroundColor: colors
-            .slice(0, labels.length)
-            .map((c) => c + "cc"),
+          backgroundColor: (context) => {
+            const ctx = context.chart.ctx;
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            const colors =
+              gradientColors[context.dataIndex % gradientColors.length];
+            gradient.addColorStop(0, colors.start);
+            gradient.addColorStop(0.5, colors.middle);
+            gradient.addColorStop(1, colors.end);
+            return gradient;
+          },
+          borderColor: "rgba(255, 255, 255, 0.8)",
+          borderWidth: 3,
+          borderRadius: 20,
+          barThickness: 70,
+          hoverBackgroundColor: (context) => {
+            const colors =
+              gradientColors[context.dataIndex % gradientColors.length];
+            return colors.middle;
+          },
+          hoverBorderColor: "#fff",
+          hoverBorderWidth: 5,
+          shadowOffsetX: 3,
+          shadowOffsetY: 3,
+          shadowBlur: 15,
+          shadowColor: "rgba(0, 0, 0, 0.2)",
         },
       ],
     };
@@ -439,13 +513,15 @@ function App() {
               : 0,
             advancedAnalytics.health_scores?.[0]?.score || 0,
           ],
-          backgroundColor: "rgba(102, 126, 234, 0.2)",
+          backgroundColor: "rgba(102, 126, 234, 0.3)",
           borderColor: "#667eea",
-          borderWidth: 2,
+          borderWidth: 3,
           pointBackgroundColor: "#667eea",
           pointBorderColor: "#fff",
           pointHoverBackgroundColor: "#fff",
           pointHoverBorderColor: "#667eea",
+          pointRadius: 6,
+          pointHoverRadius: 8,
         },
       ],
     };
@@ -461,25 +537,43 @@ function App() {
           label: "Flowrate Trend",
           data: trendsData.flowrate,
           borderColor: "#667eea",
-          backgroundColor: "rgba(102, 126, 234, 0.1)",
+          backgroundColor: "rgba(102, 126, 234, 0.2)",
           tension: 0.4,
           fill: true,
+          borderWidth: 3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: "#667eea",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
         },
         {
           label: "Pressure Trend",
           data: trendsData.pressure,
           borderColor: "#4facfe",
-          backgroundColor: "rgba(79, 172, 254, 0.1)",
+          backgroundColor: "rgba(79, 172, 254, 0.2)",
           tension: 0.4,
           fill: true,
+          borderWidth: 3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: "#4facfe",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
         },
         {
           label: "Temperature Trend",
           data: trendsData.temperature,
           borderColor: "#fa709a",
-          backgroundColor: "rgba(250, 112, 154, 0.1)",
+          backgroundColor: "rgba(250, 112, 154, 0.2)",
           tension: 0.4,
           fill: true,
+          borderWidth: 3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: "#fa709a",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
         },
       ],
     };
@@ -497,22 +591,34 @@ function App() {
         {
           label: "Flowrate",
           data: comparisonData.map((eq) => eq.flowrate),
-          backgroundColor: "rgba(102, 126, 234, 0.7)",
+          backgroundColor: "rgba(102, 126, 234, 0.8)",
+          borderColor: "#667eea",
+          borderWidth: 2,
+          borderRadius: 12,
         },
         {
           label: "Pressure",
           data: comparisonData.map((eq) => eq.pressure),
-          backgroundColor: "rgba(79, 172, 254, 0.7)",
+          backgroundColor: "rgba(79, 172, 254, 0.8)",
+          borderColor: "#4facfe",
+          borderWidth: 2,
+          borderRadius: 12,
         },
         {
           label: "Temperature",
           data: comparisonData.map((eq) => eq.temperature),
-          backgroundColor: "rgba(250, 112, 154, 0.7)",
+          backgroundColor: "rgba(250, 112, 154, 0.8)",
+          borderColor: "#fa709a",
+          borderWidth: 2,
+          borderRadius: 12,
         },
         {
           label: "Health Score",
           data: comparisonData.map((eq) => eq.health_score),
-          backgroundColor: "rgba(16, 185, 129, 0.7)",
+          backgroundColor: "rgba(16, 185, 129, 0.8)",
+          borderColor: "#10b981",
+          borderWidth: 2,
+          borderRadius: 12,
         },
       ],
     };
@@ -521,23 +627,69 @@ function App() {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: true,
+    interaction: {
+      mode: "index",
+      intersect: false,
+    },
+    animation: {
+      duration: 1500,
+      easing: "easeInOutCubic",
+      delay: (context) => {
+        let delay = 0;
+        if (context.type === "data" && context.mode === "default") {
+          delay = context.dataIndex * 100;
+        }
+        return delay;
+      },
+    },
     plugins: {
       legend: {
-        display: selectedChart !== "bar",
+        display: true,
         position: "bottom",
         labels: {
-          padding: 15,
-          font: { size: 12, weight: "bold" },
+          padding: 25,
+          font: {
+            size: 14,
+            weight: "bold",
+            family: "'Inter', sans-serif",
+          },
           usePointStyle: true,
+          pointStyle: "rectRounded",
+          color: "#1e293b",
+          boxWidth: 12,
+          boxHeight: 12,
         },
       },
       tooltip: {
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
-        padding: 12,
-        titleFont: { size: 14, weight: "bold" },
-        bodyFont: { size: 13 },
-        borderColor: "rgba(255, 255, 255, 0.3)",
-        borderWidth: 1,
+        enabled: true,
+        backgroundColor: "rgba(30, 41, 59, 0.98)",
+        padding: 20,
+        titleFont: { size: 16, weight: "bold" },
+        bodyFont: { size: 14, weight: "600" },
+        borderColor: "rgba(102, 126, 234, 0.6)",
+        borderWidth: 3,
+        cornerRadius: 12,
+        displayColors: true,
+        boxWidth: 12,
+        boxHeight: 12,
+        usePointStyle: true,
+        callbacks: {
+          label: function (context) {
+            let label = context.dataset.label || "";
+            if (label) {
+              label += ": ";
+            }
+            if (context.parsed.y !== null) {
+              label += context.parsed.y + " units";
+            }
+            return label;
+          },
+          afterLabel: function (context) {
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = ((context.parsed.y / total) * 100).toFixed(1);
+            return `(${percentage}% of total)`;
+          },
+        },
       },
     },
     scales:
@@ -545,12 +697,35 @@ function App() {
         ? {
             y: {
               beginAtZero: true,
-              grid: { color: "rgba(0, 0, 0, 0.05)" },
-              ticks: { font: { size: 12, weight: "500" }, color: "#64748b" },
+              grid: {
+                color: "rgba(148, 163, 184, 0.15)",
+                lineWidth: 1.5,
+                drawBorder: false,
+              },
+              ticks: {
+                font: { size: 13, weight: "700" },
+                color: "#64748b",
+                padding: 12,
+                callback: function (value) {
+                  return value + " ";
+                },
+              },
+              border: {
+                display: false,
+              },
             },
             x: {
               grid: { display: false },
-              ticks: { font: { size: 12, weight: "600" }, color: "#1e293b" },
+              ticks: {
+                font: { size: 13, weight: "700" },
+                color: "#1e293b",
+                padding: 12,
+                maxRotation: 45,
+                minRotation: 0,
+              },
+              border: {
+                display: false,
+              },
             },
           }
         : {},
@@ -853,51 +1028,81 @@ function App() {
                 </div>
                 <div className="summary-grid">
                   <motion.div
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    whileTap={{ scale: 0.98 }}
                     className="stat-item stat-primary"
+                    style={{ cursor: "pointer" }}
                   >
                     <div className="stat-icon">📝</div>
                     <div className="stat-content">
                       <div className="stat-label">Total Records</div>
-                      <div className="stat-value">{summary.total_records}</div>
+                      <motion.div
+                        className="stat-value"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        {summary.total_records}
+                      </motion.div>
                     </div>
                   </motion.div>
                   <motion.div
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    whileTap={{ scale: 0.98 }}
                     className="stat-item stat-info"
+                    style={{ cursor: "pointer" }}
                   >
                     <div className="stat-icon">💧</div>
                     <div className="stat-content">
                       <div className="stat-label">Avg Flowrate</div>
-                      <div className="stat-value">
+                      <motion.div
+                        className="stat-value"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
+                      >
                         {summary.avg_flowrate.toFixed(2)}
-                      </div>
+                      </motion.div>
                       <div className="stat-unit">L/min</div>
                     </div>
                   </motion.div>
                   <motion.div
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    whileTap={{ scale: 0.98 }}
                     className="stat-item stat-warning"
+                    style={{ cursor: "pointer" }}
                   >
                     <div className="stat-icon">⚡</div>
                     <div className="stat-content">
                       <div className="stat-label">Avg Pressure</div>
-                      <div className="stat-value">
+                      <motion.div
+                        className="stat-value"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                      >
                         {summary.avg_pressure.toFixed(2)}
-                      </div>
+                      </motion.div>
                       <div className="stat-unit">bar</div>
                     </div>
                   </motion.div>
                   <motion.div
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    whileTap={{ scale: 0.98 }}
                     className="stat-item stat-danger"
+                    style={{ cursor: "pointer" }}
                   >
                     <div className="stat-icon">🌡️</div>
                     <div className="stat-content">
                       <div className="stat-label">Avg Temperature</div>
-                      <div className="stat-value">
+                      <motion.div
+                        className="stat-value"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                      >
                         {summary.avg_temperature.toFixed(2)}
-                      </div>
+                      </motion.div>
                       <div className="stat-unit">°C</div>
                     </div>
                   </motion.div>
@@ -988,29 +1193,79 @@ function App() {
                   <h3>📈 Equipment Distribution</h3>
                   <div className="chart-controls">
                     {[
-                      { value: "bar", label: "📊 Bar" },
-                      { value: "line", label: "📈 Line" },
-                      { value: "doughnut", label: "🍩 Doughnut" },
+                      { value: "bar", label: "📊 Bar", emoji: "📊" },
+                      { value: "line", label: "📈 Line", emoji: "📈" },
+                      { value: "doughnut", label: "🍩 Doughnut", emoji: "🍩" },
                     ].map((chart) => (
                       <button
                         key={chart.value}
                         className={`chart-btn ${selectedChart === chart.value ? "active" : ""}`}
                         onClick={() => setSelectedChart(chart.value)}
                       >
-                        {chart.label}
+                        <span
+                          style={{ fontSize: "1.2rem", marginRight: "6px" }}
+                        >
+                          {chart.emoji}
+                        </span>
+                        {chart.label.replace(/^[\p{Emoji}]\s*/u, "")}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="chart-container">
+                <div
+                  className="chart-container"
+                  style={{ position: "relative", minHeight: "400px" }}
+                >
                   {selectedChart === "bar" && (
-                    <Bar data={getChartData()} options={chartOptions} />
+                    <Bar
+                      data={getChartData()}
+                      options={{
+                        ...chartOptions,
+                        plugins: {
+                          ...chartOptions.plugins,
+                          datalabels: {
+                            display: true,
+                            color: "#fff",
+                            font: { weight: "bold", size: 14 },
+                            formatter: (value) => value,
+                            anchor: "end",
+                            align: "top",
+                          },
+                        },
+                      }}
+                    />
                   )}
                   {selectedChart === "line" && (
-                    <Line data={getChartData()} options={chartOptions} />
+                    <Line
+                      data={getChartData()}
+                      options={{
+                        ...chartOptions,
+                        elements: {
+                          line: {
+                            borderJoinStyle: "round",
+                            borderCapStyle: "round",
+                          },
+                        },
+                      }}
+                    />
                   )}
                   {selectedChart === "doughnut" && (
-                    <Doughnut data={getChartData()} options={chartOptions} />
+                    <div style={{ maxWidth: "500px", margin: "0 auto" }}>
+                      <Doughnut
+                        data={getChartData()}
+                        options={{
+                          ...chartOptions,
+                          cutout: "65%",
+                          plugins: {
+                            ...chartOptions.plugins,
+                            legend: {
+                              ...chartOptions.plugins.legend,
+                              position: "right",
+                            },
+                          },
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
@@ -1038,6 +1293,14 @@ function App() {
                             r: {
                               beginAtZero: true,
                               max: 150,
+                              grid: {
+                                color: "rgba(148, 163, 184, 0.2)",
+                              },
+                              ticks: {
+                                backdropColor: "transparent",
+                                color: "#64748b",
+                                font: { weight: "600" },
+                              },
                             },
                           },
                         }}
