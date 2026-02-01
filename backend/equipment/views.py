@@ -3,7 +3,7 @@ import numpy as np
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Dataset, EquipmentAlert, MaintenanceSchedule, EquipmentParameter
+from .models import Dataset, EquipmentAlert, MaintenanceSchedule, EquipmentParameter, EmailReportSchedule, EquipmentRanking
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -14,12 +14,15 @@ from django.http import HttpResponse
 from io import BytesIO
 from datetime import datetime, timedelta
 import json
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.chart import BarChart, Reference, LineChart
+from sklearn.linear_model import LinearRegression
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_csv(request):
-    """Enhanced CSV upload with advanced analytics"""
     file = request.FILES.get('file')
 
     if not file:
@@ -27,7 +30,6 @@ def upload_csv(request):
 
     df = pd.read_csv(file)
 
-    # Basic summary
     summary = {
         "total_records": len(df),
         "avg_flowrate": df["Flowrate"].mean(),
@@ -36,9 +38,7 @@ def upload_csv(request):
         "type_distribution": df["Type"].value_counts().to_dict()
     }
 
-    # Advanced analytics
     advanced_analytics = {
-        # Statistical measures
         "flowrate_stats": {
             "min": df["Flowrate"].min(),
             "max": df["Flowrate"].max(),
@@ -57,17 +57,9 @@ def upload_csv(request):
             "std": df["Temperature"].std(),
             "median": df["Temperature"].median(),
         },
-        
-        # Equipment health scoring
         "health_scores": calculate_health_scores(df),
-        
-        # Anomaly detection
         "anomalies": detect_anomalies(df),
-        
-        # Efficiency metrics
         "efficiency_metrics": calculate_efficiency_metrics(df),
-        
-        # Correlation analysis
         "correlations": {
             "flowrate_pressure": df[["Flowrate", "Pressure"]].corr().iloc[0, 1],
             "flowrate_temperature": df[["Flowrate", "Temperature"]].corr().iloc[0, 1],
@@ -75,10 +67,8 @@ def upload_csv(request):
         }
     }
 
-    # Create alerts for equipment outside normal range
     alerts_data = generate_alerts(df)
 
-    # Save to database
     dataset = Dataset.objects.create(
         total_records=summary["total_records"],
         avg_flowrate=summary["avg_flowrate"],
@@ -88,7 +78,6 @@ def upload_csv(request):
         file_name=file.name
     )
 
-    # Save equipment parameters
     for _, row in df.iterrows():
         health_score = calculate_single_health_score(row['Flowrate'], row['Pressure'], row['Temperature'])
         EquipmentParameter.objects.create(
@@ -101,7 +90,6 @@ def upload_csv(request):
             health_score=health_score
         )
 
-    # Save alerts to database
     for alert in alerts_data:
         EquipmentAlert.objects.create(
             equipment_name=alert['equipment'],
@@ -113,24 +101,38 @@ def upload_csv(request):
             recommendation=alert.get('recommendation', '')
         )
 
+    # Generate predictive alerts
+    predictive_alerts = generate_predictive_alerts(df)
+    for alert in predictive_alerts:
+        EquipmentAlert.objects.create(
+            equipment_name=alert['equipment'],
+            alert_type='PREDICTIVE',
+            parameter=alert['parameter'],
+            value=alert['current_value'],
+            threshold=alert['threshold'],
+            message=alert['message'],
+            recommendation=alert['recommendation'],
+            predicted_failure_date=alert['predicted_date'],
+            confidence_score=alert['confidence']
+        )
+
+    # Calculate rankings
+    calculate_equipment_rankings(df)
+
     return Response({
         **summary,
         "advanced_analytics": advanced_analytics,
-        "alerts": alerts_data
+        "alerts": alerts_data,
+        "predictive_alerts": predictive_alerts
     })
 
 
 def calculate_health_scores(df):
-    """Calculate health scores for each equipment"""
     scores = []
-    
     for _, row in df.iterrows():
-        # Normalize parameters (0-100 scale)
         flowrate_score = normalize_score(row['Flowrate'], 50, 150, 100, 130)
         pressure_score = normalize_score(row['Pressure'], 3, 9, 4, 8)
         temp_score = normalize_score(row['Temperature'], 90, 150, 100, 135)
-        
-        # Weighted average
         overall_score = (flowrate_score * 0.4 + pressure_score * 0.3 + temp_score * 0.3)
         
         scores.append({
@@ -143,7 +145,6 @@ def calculate_health_scores(df):
 
 
 def calculate_single_health_score(flowrate, pressure, temperature):
-    """Calculate health score for single equipment"""
     flowrate_score = normalize_score(flowrate, 50, 150, 100, 130)
     pressure_score = normalize_score(pressure, 3, 9, 4, 8)
     temp_score = normalize_score(temperature, 90, 150, 100, 135)
@@ -151,7 +152,6 @@ def calculate_single_health_score(flowrate, pressure, temperature):
 
 
 def normalize_score(value, min_val, max_val, optimal_min, optimal_max):
-    """Normalize value to 0-100 score based on optimal range"""
     if optimal_min <= value <= optimal_max:
         return 100
     elif value < optimal_min:
@@ -165,14 +165,10 @@ def normalize_score(value, min_val, max_val, optimal_min, optimal_max):
 
 
 def detect_anomalies(df):
-    """Detect anomalies using statistical methods"""
     anomalies = []
-    
     for param in ['Flowrate', 'Pressure', 'Temperature']:
         mean = df[param].mean()
         std = df[param].std()
-        
-        # Find values beyond 2 standard deviations
         outliers = df[(df[param] < mean - 2*std) | (df[param] > mean + 2*std)]
         
         for _, row in outliers.iterrows():
@@ -188,13 +184,9 @@ def detect_anomalies(df):
 
 
 def calculate_efficiency_metrics(df):
-    """Calculate efficiency metrics"""
-    # Group by equipment type
     type_efficiency = {}
-    
     for eq_type in df['Type'].unique():
         type_data = df[df['Type'] == eq_type]
-        
         type_efficiency[eq_type] = {
             "avg_flowrate": type_data['Flowrate'].mean(),
             "avg_pressure": type_data['Pressure'].mean(),
@@ -202,27 +194,20 @@ def calculate_efficiency_metrics(df):
             "count": len(type_data),
             "efficiency_index": calculate_efficiency_index(type_data)
         }
-    
     return type_efficiency
 
 
 def calculate_efficiency_index(data):
-    """Calculate custom efficiency index"""
-    # Custom formula based on optimal ranges
     flowrate_eff = data['Flowrate'].apply(lambda x: 100 if 100 <= x <= 130 else 80 if 80 <= x <= 150 else 60)
     pressure_eff = data['Pressure'].apply(lambda x: 100 if 4 <= x <= 8 else 80 if 3 <= x <= 9 else 60)
     temp_eff = data['Temperature'].apply(lambda x: 100 if 100 <= x <= 135 else 80 if 90 <= x <= 150 else 60)
-    
     overall_eff = (flowrate_eff.mean() + pressure_eff.mean() + temp_eff.mean()) / 3
     return round(overall_eff, 2)
 
 
 def generate_alerts(df):
-    """Generate alerts for equipment issues"""
     alerts = []
-    
     for _, row in df.iterrows():
-        # Critical thresholds
         if row['Flowrate'] > 150:
             alerts.append({
                 "type": "Critical",
@@ -289,30 +274,121 @@ def generate_alerts(df):
     return alerts
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])  # CORRECT
-def get_trends(request):
-    """Get upload history with enhanced details"""
-    datasets = Dataset.objects.order_by('-uploaded_at')[:10]
+def generate_predictive_alerts(df):
+    """Use simple linear regression to predict equipment failures"""
+    predictive_alerts = []
+    
+    # Get historical data for trend analysis
+    historical_params = EquipmentParameter.objects.all().order_by('recorded_at')
+    
+    for equipment_name in df['Equipment Name'].unique():
+        equipment_history = historical_params.filter(equipment_name=equipment_name)
+        
+        if len(equipment_history) < 5:
+            continue
+            
+        # Analyze flowrate trend
+        flowrates = [p.flowrate for p in equipment_history]
+        X = np.array(range(len(flowrates))).reshape(-1, 1)
+        y = np.array(flowrates)
+        
+        if len(X) > 0:
+            model = LinearRegression()
+            model.fit(X, y)
+            
+            # Predict next 30 days
+            future_days = 30
+            future_X = np.array(range(len(flowrates), len(flowrates) + future_days)).reshape(-1, 1)
+            predictions = model.predict(future_X)
+            
+            # Check if predicted to go out of range
+            critical_threshold_high = 150
+            critical_threshold_low = 50
+            
+            for i, pred in enumerate(predictions):
+                if pred > critical_threshold_high or pred < critical_threshold_low:
+                    days_to_failure = i + 1
+                    predicted_date = datetime.now().date() + timedelta(days=days_to_failure)
+                    confidence = min(95, 70 + (len(flowrates) * 2))
+                    
+                    predictive_alerts.append({
+                        "equipment": equipment_name,
+                        "parameter": "Flowrate",
+                        "current_value": flowrates[-1],
+                        "threshold": critical_threshold_high if pred > critical_threshold_high else critical_threshold_low,
+                        "message": f"Predicted failure in {days_to_failure} days - Flowrate trending {'up' if pred > critical_threshold_high else 'down'}",
+                        "recommendation": f"Schedule preventive maintenance before {predicted_date.strftime('%Y-%m-%d')}",
+                        "predicted_date": predicted_date,
+                        "confidence": confidence
+                    })
+                    break
+    
+    return predictive_alerts
 
-    data = []
-    for d in datasets:
-        data.append({
-            "id": d.id,
-            "uploaded_at": d.uploaded_at,
-            "total_records": d.total_records,
-            "avg_flowrate": d.avg_flowrate,
-            "avg_pressure": d.avg_pressure,
-            "avg_temperature": d.avg_temperature,
+
+def calculate_equipment_rankings(df):
+    """Calculate and store equipment rankings"""
+    EquipmentRanking.objects.all().delete()
+    
+    rankings = []
+    for _, row in df.iterrows():
+        health_score = calculate_single_health_score(row['Flowrate'], row['Pressure'], row['Temperature'])
+        
+        # Calculate efficiency score
+        efficiency = calculate_efficiency_index(pd.DataFrame([row]))
+        
+        # Overall score (weighted)
+        overall_score = (health_score * 0.5 + efficiency * 0.5)
+        
+        rankings.append({
+            'equipment_name': row['Equipment Name'],
+            'equipment_type': row['Type'],
+            'overall_score': overall_score,
+            'health_score': health_score,
+            'efficiency_score': efficiency
         })
+    
+    # Sort and assign ranks
+    rankings.sort(key=lambda x: x['overall_score'], reverse=True)
+    
+    for i, rank_data in enumerate(rankings):
+        EquipmentRanking.objects.create(
+            equipment_name=rank_data['equipment_name'],
+            equipment_type=rank_data['equipment_type'],
+            overall_score=rank_data['overall_score'],
+            efficiency_rank=i + 1,
+            reliability_rank=i + 1,
+            performance_rank=i + 1
+        )
 
-    return Response(data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_trends(request):
+    days = int(request.GET.get('days', 30))
+    datasets = Dataset.objects.filter(
+        uploaded_at__gte=datetime.now() - timedelta(days=days)
+    ).order_by('uploaded_at')
+    
+    trends = {
+        'dates': [],
+        'flowrate': [],
+        'pressure': [],
+        'temperature': []
+    }
+    
+    for ds in datasets:
+        trends['dates'].append(ds.uploaded_at.strftime('%Y-%m-%d'))
+        trends['flowrate'].append(float(ds.avg_flowrate))
+        trends['pressure'].append(float(ds.avg_pressure))
+        trends['temperature'].append(float(ds.avg_temperature))
+    
+    return Response(trends)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def generate_pdf(request):
-    """Generate enhanced PDF report with charts and analysis"""
     dataset = Dataset.objects.order_by('-uploaded_at').first()
 
     if not dataset:
@@ -323,14 +399,13 @@ def generate_pdf(request):
     story = []
     styles = getSampleStyleSheet()
     
-    # Custom styles
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
         fontSize=24,
         textColor=colors.HexColor('#667eea'),
         spaceAfter=30,
-        alignment=1  # Center
+        alignment=1
     )
     
     heading_style = ParagraphStyle(
@@ -342,12 +417,10 @@ def generate_pdf(request):
         spaceBefore=12,
     )
     
-    # Title
     story.append(Paragraph("Chemical Equipment Analysis Report", title_style))
     story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
     story.append(Spacer(1, 0.3*inch))
     
-    # Summary section
     story.append(Paragraph("Executive Summary", heading_style))
     
     summary_data = [
@@ -371,8 +444,6 @@ def generate_pdf(request):
     ]))
     
     story.append(summary_table)
-    
-    # Build PDF
     doc.build(story)
     
     buffer.seek(0)
@@ -382,14 +453,154 @@ def generate_pdf(request):
     return response
 
 
-# NEW ENDPOINTS FOR FEATURES
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def export_to_excel(request):
+    """Export comprehensive data to Excel with multiple sheets and charts"""
+    dataset = Dataset.objects.order_by('-uploaded_at').first()
+    
+    if not dataset:
+        return Response({"error": "No data available"}, status=400)
+    
+    wb = Workbook()
+    
+    # Sheet 1: Summary
+    ws_summary = wb.active
+    ws_summary.title = "Summary"
+    
+    # Header styling
+    header_fill = PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=12)
+    
+    ws_summary['A1'] = "Equipment Analysis Report"
+    ws_summary['A1'].font = Font(bold=True, size=16, color="667EEA")
+    ws_summary.merge_cells('A1:B1')
+    
+    ws_summary['A3'] = "Generated"
+    ws_summary['B3'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    ws_summary['A5'] = "Metric"
+    ws_summary['B5'] = "Value"
+    ws_summary['A5'].fill = header_fill
+    ws_summary['B5'].fill = header_fill
+    ws_summary['A5'].font = header_font
+    ws_summary['B5'].font = header_font
+    
+    summary_data = [
+        ["Total Records", dataset.total_records],
+        ["Average Flowrate (L/min)", round(dataset.avg_flowrate, 2)],
+        ["Average Pressure (bar)", round(dataset.avg_pressure, 2)],
+        ["Average Temperature (°C)", round(dataset.avg_temperature, 2)],
+    ]
+    
+    for i, row_data in enumerate(summary_data, start=6):
+        ws_summary[f'A{i}'] = row_data[0]
+        ws_summary[f'B{i}'] = row_data[1]
+    
+    # Sheet 2: Equipment Details
+    ws_equipment = wb.create_sheet("Equipment Details")
+    headers = ["Equipment Name", "Type", "Flowrate", "Pressure", "Temperature", "Health Score"]
+    ws_equipment.append(headers)
+    
+    for cell in ws_equipment[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+    
+    equipment_params = EquipmentParameter.objects.filter(dataset=dataset)
+    for param in equipment_params:
+        ws_equipment.append([
+            param.equipment_name,
+            param.equipment_type,
+            param.flowrate,
+            param.pressure,
+            param.temperature,
+            param.health_score
+        ])
+    
+    # Sheet 3: Rankings
+    ws_rankings = wb.create_sheet("Performance Rankings")
+    rank_headers = ["Rank", "Equipment", "Type", "Overall Score", "Efficiency Rank", "Performance Rank"]
+    ws_rankings.append(rank_headers)
+    
+    for cell in ws_rankings[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+    
+    rankings = EquipmentRanking.objects.all()[:20]
+    for i, ranking in enumerate(rankings, start=1):
+        ws_rankings.append([
+            i,
+            ranking.equipment_name,
+            ranking.equipment_type,
+            round(ranking.overall_score, 2),
+            ranking.efficiency_rank,
+            ranking.performance_rank
+        ])
+    
+    # Sheet 4: Alerts
+    ws_alerts = wb.create_sheet("Alerts")
+    alert_headers = ["Equipment", "Type", "Parameter", "Value", "Threshold", "Message"]
+    ws_alerts.append(alert_headers)
+    
+    for cell in ws_alerts[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+    
+    alerts = EquipmentAlert.objects.filter(resolved=False)[:50]
+    for alert in alerts:
+        ws_alerts.append([
+            alert.equipment_name,
+            alert.alert_type,
+            alert.parameter,
+            alert.value,
+            alert.threshold,
+            alert.message
+        ])
+    
+    # Add chart to equipment sheet
+    chart = BarChart()
+    chart.title = "Equipment Health Scores"
+    chart.x_axis.title = "Equipment"
+    chart.y_axis.title = "Health Score"
+    
+    data = Reference(ws_equipment, min_col=6, min_row=1, max_row=len(equipment_params)+1)
+    cats = Reference(ws_equipment, min_col=1, min_row=2, max_row=len(equipment_params)+1)
+    chart.add_data(data, titles_from_data=True)
+    chart.set_categories(cats)
+    ws_equipment.add_chart(chart, "H2")
+    
+    # Auto-size columns
+    for ws in [ws_summary, ws_equipment, ws_rankings, ws_alerts]:
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+    
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    response = HttpResponse(
+        buffer,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="equipment_analysis.xlsx"'
+    
+    return response
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_alerts(request):
-    """Get all alerts with filtering"""
     resolved = request.GET.get('resolved', 'false').lower() == 'true'
-    
     alerts = EquipmentAlert.objects.filter(resolved=resolved).order_by('-created_at')[:50]
     
     data = []
@@ -405,7 +616,9 @@ def get_alerts(request):
             'recommendation': alert.recommendation,
             'created_at': alert.created_at,
             'resolved': alert.resolved,
-            'resolved_at': alert.resolved_at
+            'resolved_at': alert.resolved_at,
+            'predicted_failure_date': alert.predicted_failure_date,
+            'confidence_score': alert.confidence_score
         })
     
     return Response(data)
@@ -414,14 +627,12 @@ def get_alerts(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def resolve_alert(request, alert_id):
-    """Resolve an alert"""
     try:
         alert = EquipmentAlert.objects.get(id=alert_id)
         alert.resolved = True
         alert.resolved_at = datetime.now()
         alert.resolved_by = request.user
         alert.save()
-        
         return Response({'success': True, 'message': 'Alert resolved'})
     except EquipmentAlert.DoesNotExist:
         return Response({'error': 'Alert not found'}, status=404)
@@ -430,13 +641,11 @@ def resolve_alert(request, alert_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def compare_equipment(request):
-    """Compare multiple equipment"""
     equipment_names = request.data.get('equipment_names', [])
     
     if len(equipment_names) < 2:
         return Response({'error': 'Select at least 2 equipment'}, status=400)
     
-    # Get latest data for each equipment
     latest_dataset = Dataset.objects.order_by('-uploaded_at').first()
     
     if not latest_dataset:
@@ -463,35 +672,7 @@ def compare_equipment(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-
-def get_trends(request):
-    """Get historical trends for charts"""
-    days = int(request.GET.get('days', 30))
-    
-    datasets = Dataset.objects.filter(
-        uploaded_at__gte=datetime.now() - timedelta(days=days)
-    ).order_by('uploaded_at')
-    
-    trends = {
-        'dates': [],
-        'flowrate': [],
-        'pressure': [],
-        'temperature': []
-    }
-    
-    for ds in datasets:
-        trends['dates'].append(ds.uploaded_at.strftime('%Y-%m-%d'))
-        trends['flowrate'].append(float(ds.avg_flowrate))
-        trends['pressure'].append(float(ds.avg_pressure))
-        trends['temperature'].append(float(ds.avg_temperature))
-    
-    return Response(trends)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def get_maintenance_schedule(request):
-    """Get maintenance schedule"""
     schedules = MaintenanceSchedule.objects.filter(
         status__in=['SCHEDULED', 'IN_PROGRESS']
     ).order_by('scheduled_date')[:20]
@@ -516,7 +697,6 @@ def get_maintenance_schedule(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_maintenance_schedule(request):
-    """Create new maintenance schedule"""
     schedule = MaintenanceSchedule.objects.create(
         equipment_name=request.data.get('equipment_name'),
         equipment_type=request.data.get('equipment_type'),
@@ -534,7 +714,6 @@ def create_maintenance_schedule(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def update_maintenance_status(request, schedule_id):
-    """Update maintenance schedule status"""
     try:
         schedule = MaintenanceSchedule.objects.get(id=schedule_id)
         new_status = request.data.get('status')
@@ -544,7 +723,95 @@ def update_maintenance_status(request, schedule_id):
             schedule.completed_at = datetime.now()
         
         schedule.save()
-        
         return Response({'success': True})
     except MaintenanceSchedule.DoesNotExist:
+        return Response({'error': 'Schedule not found'}, status=404)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_equipment_rankings(request):
+    """Get equipment performance rankings"""
+    rankings = EquipmentRanking.objects.all()[:20]
+    
+    data = []
+    for i, ranking in enumerate(rankings, start=1):
+        data.append({
+            'rank': i,
+            'equipment_name': ranking.equipment_name,
+            'equipment_type': ranking.equipment_type,
+            'overall_score': ranking.overall_score,
+            'efficiency_rank': ranking.efficiency_rank,
+            'reliability_rank': ranking.reliability_rank,
+            'performance_rank': ranking.performance_rank
+        })
+    
+    return Response(data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def schedule_email_report(request):
+    """Schedule automated email reports"""
+    EmailReportSchedule.objects.create(
+        user=request.user,
+        frequency=request.data.get('frequency'),
+        email=request.data.get('email'),
+        include_summary=request.data.get('include_summary', True),
+        include_charts=request.data.get('include_charts', True),
+        include_alerts=request.data.get('include_alerts', True),
+        include_analytics=request.data.get('include_analytics', True)
+    )
+    
+    return Response({'success': True, 'message': 'Email report scheduled'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_email_schedules(request):
+    """Get user's email schedules"""
+    schedules = EmailReportSchedule.objects.filter(user=request.user)
+    
+    data = []
+    for schedule in schedules:
+        data.append({
+            'id': schedule.id,
+            'frequency': schedule.frequency,
+            'email': schedule.email,
+            'include_summary': schedule.include_summary,
+            'include_charts': schedule.include_charts,
+            'include_alerts': schedule.include_alerts,
+            'include_analytics': schedule.include_analytics,
+            'active': schedule.active,
+            'last_sent': schedule.last_sent
+        })
+    
+    return Response(data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_email_schedule(request, schedule_id):
+    """Update email schedule"""
+    try:
+        schedule = EmailReportSchedule.objects.get(id=schedule_id, user=request.user)
+        schedule.active = request.data.get('active', schedule.active)
+        schedule.frequency = request.data.get('frequency', schedule.frequency)
+        schedule.email = request.data.get('email', schedule.email)
+        schedule.save()
+        
+        return Response({'success': True})
+    except EmailReportSchedule.DoesNotExist:
+        return Response({'error': 'Schedule not found'}, status=404)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_email_schedule(request, schedule_id):
+    """Delete email schedule"""
+    try:
+        schedule = EmailReportSchedule.objects.get(id=schedule_id, user=request.user)
+        schedule.delete()
+        return Response({'success': True})
+    except EmailReportSchedule.DoesNotExist:
         return Response({'error': 'Schedule not found'}, status=404)

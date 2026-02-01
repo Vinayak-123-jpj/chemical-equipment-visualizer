@@ -24,6 +24,7 @@ class EquipmentAlert(models.Model):
         ('CRITICAL', 'Critical'),
         ('WARNING', 'Warning'),
         ('INFO', 'Info'),
+        ('PREDICTIVE', 'Predictive'),
     ]
     
     equipment_name = models.CharField(max_length=100)
@@ -37,6 +38,8 @@ class EquipmentAlert(models.Model):
     resolved = models.BooleanField(default=False)
     resolved_at = models.DateTimeField(null=True, blank=True)
     resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    predicted_failure_date = models.DateField(null=True, blank=True)
+    confidence_score = models.FloatField(null=True, blank=True)
     
     def __str__(self):
         return f"{self.alert_type} - {self.equipment_name} - {self.parameter}"
@@ -82,7 +85,6 @@ class MaintenanceSchedule(models.Model):
 
 
 class EquipmentParameter(models.Model):
-    """Store historical equipment parameters for trend analysis"""
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='parameters')
     equipment_name = models.CharField(max_length=100)
     equipment_type = models.CharField(max_length=50)
@@ -124,7 +126,6 @@ class SystemNotification(models.Model):
 
 
 class EquipmentPerformanceMetric(models.Model):
-    """Track performance metrics over time"""
     equipment_name = models.CharField(max_length=100)
     equipment_type = models.CharField(max_length=50)
     date = models.DateField()
@@ -141,3 +142,44 @@ class EquipmentPerformanceMetric(models.Model):
     class Meta:
         ordering = ['-date']
         unique_together = ['equipment_name', 'date']
+
+
+class EmailReportSchedule(models.Model):
+    FREQUENCY_CHOICES = [
+        ('DAILY', 'Daily'),
+        ('WEEKLY', 'Weekly'),
+        ('MONTHLY', 'Monthly'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_schedules')
+    frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
+    email = models.EmailField()
+    include_summary = models.BooleanField(default=True)
+    include_charts = models.BooleanField(default=True)
+    include_alerts = models.BooleanField(default=True)
+    include_analytics = models.BooleanField(default=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_sent = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.frequency} - {self.email}"
+    
+    class Meta:
+        ordering = ['-created_at']
+
+
+class EquipmentRanking(models.Model):
+    equipment_name = models.CharField(max_length=100)
+    equipment_type = models.CharField(max_length=50)
+    overall_score = models.FloatField()
+    efficiency_rank = models.IntegerField()
+    reliability_rank = models.IntegerField()
+    performance_rank = models.IntegerField()
+    calculated_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.equipment_name} - Score: {self.overall_score}"
+    
+    class Meta:
+        ordering = ['-overall_score']

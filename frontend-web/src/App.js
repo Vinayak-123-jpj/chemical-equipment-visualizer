@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,7 +19,6 @@ import {
 import { Bar, Line, Doughnut, Radar } from "react-chartjs-2";
 import Login from "./Login";
 import "./styles/App.css";
-import "./styles/App.css";
 import "./styles/NewFeatures.css";
 
 ChartJS.register(
@@ -36,7 +35,6 @@ ChartJS.register(
   Filler,
 );
 
-// Configure axios interceptor for JWT token
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -45,17 +43,56 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
-function App() {
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
+// NEW FEATURE 1: Animated Counter Component
+const AnimatedCounter = ({ value, duration = 2000, suffix = "" }) => {
+  const [count, setCount] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
 
-  // Existing state
+  useEffect(() => {
+    if (value === count) return;
+
+    setIsAnimating(true);
+    const increment = value / (duration / 16);
+    let current = 0;
+
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= value) {
+        setCount(value);
+        clearInterval(timer);
+        setIsAnimating(false);
+      } else {
+        setCount(Math.floor(current));
+      }
+    }, 16);
+
+    return () => clearInterval(timer);
+  }, [value, duration, count]);
+
+
+  return (
+    <motion.span
+      className="animated-counter"
+      initial={{ scale: 1 }}
+      animate={{ scale: isAnimating ? [1, 1.1, 1] : 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      {typeof count === "number" && !isNaN(count)
+        ? count.toFixed(typeof value === "number" && value % 1 !== 0 ? 2 : 0)
+        : "0"}
+      {suffix}
+    </motion.span>
+  );
+};
+
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+ const [, setUser] = useState(null);
+
   const [summary, setSummary] = useState(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
   const [history, setHistory] = useState([]);
   const [, setAlerts] = useState([]);
-
   const [fileName, setFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [selectedChart, setSelectedChart] = useState("bar");
@@ -66,10 +103,7 @@ function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedEquipment, setSelectedEquipment] = useState(null);
   const [showAlerts, setShowAlerts] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState([]);
-
-  // NEW STATE FOR NEW FEATURES
   const [allAlerts, setAllAlerts] = useState([]);
   const [showResolvedAlerts, setShowResolvedAlerts] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
@@ -79,14 +113,31 @@ function App() {
   const [maintenanceSchedule, setMaintenanceSchedule] = useState([]);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
 
-  // Check authentication on mount
+  // NEW FEATURE 4: Enhanced Dark/Light Theme Toggle
+  const [theme, setTheme] = useState("light");
+
+  // NEW FEATURE 3: Performance Rankings
+  const [rankings, setRankings] = useState([]);
+
+  // NEW FEATURE 6: Fullscreen Chart Mode
+  const [fullscreenChart, setFullscreenChart] = useState(null);
+
+  // NEW FEATURE 7: Email Reports
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailSchedules, setEmailSchedules] = useState([]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     const savedUser = localStorage.getItem("user");
+    const savedTheme = localStorage.getItem("theme") || "light";
+
     if (token && savedUser) {
       setIsAuthenticated(true);
       setUser(JSON.parse(savedUser));
     }
+
+    setTheme(savedTheme);
+    document.documentElement.setAttribute("data-theme", savedTheme);
   }, []);
 
   const handleLogin = (userData, token) => {
@@ -104,14 +155,12 @@ function App() {
     setRawData([]);
   };
 
-  // Apply dark mode to document body
-  useEffect(() => {
-    if (darkMode) {
-      document.body.classList.add("dark-mode");
-    } else {
-      document.body.classList.remove("dark-mode");
-    }
-  }, [darkMode]);
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    document.documentElement.setAttribute("data-theme", newTheme);
+  };
 
   const fetchHistory = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -123,7 +172,6 @@ function App() {
     }
   }, [isAuthenticated]);
 
-  // NEW: Fetch alerts
   const fetchAlerts = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -136,7 +184,6 @@ function App() {
     }
   }, [isAuthenticated, showResolvedAlerts]);
 
-  // NEW: Fetch trends
   const fetchTrends = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -149,7 +196,6 @@ function App() {
     }
   }, [isAuthenticated]);
 
-  // NEW: Fetch maintenance schedule
   const fetchMaintenance = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -162,12 +208,38 @@ function App() {
     }
   }, [isAuthenticated]);
 
+  // NEW: Fetch rankings
+  const fetchRankings = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const response = await axios.get("http://127.0.0.1:8000/api/rankings/");
+      setRankings(response.data);
+    } catch (error) {
+      console.error("Failed to fetch rankings:", error);
+    }
+  }, [isAuthenticated]);
+
+  // NEW: Fetch email schedules
+  const fetchEmailSchedules = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const response = await axios.get(
+        "http://127.0.0.1:8000/api/email-reports/",
+      );
+      setEmailSchedules(response.data);
+    } catch (error) {
+      console.error("Failed to fetch email schedules:", error);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchHistory();
       fetchAlerts();
       fetchTrends();
       fetchMaintenance();
+      fetchRankings();
+      fetchEmailSchedules();
     }
   }, [
     isAuthenticated,
@@ -175,6 +247,8 @@ function App() {
     fetchAlerts,
     fetchTrends,
     fetchMaintenance,
+    fetchRankings,
+    fetchEmailSchedules,
   ]);
 
   const handleUpload = async (e) => {
@@ -197,14 +271,12 @@ function App() {
       setAdvancedAnalytics(response.data.advanced_analytics || null);
       setAlerts(response.data.alerts || []);
 
-      // Show notification
       addNotification(
         "Success",
         "Data uploaded and analyzed successfully!",
         "success",
       );
 
-      // Parse CSV data
       const reader = new FileReader();
       reader.onload = (event) => {
         const text = event.target.result;
@@ -229,6 +301,7 @@ function App() {
       fetchHistory();
       fetchAlerts();
       fetchTrends();
+      fetchRankings();
     } catch (error) {
       console.error("Upload failed:", error);
       addNotification(
@@ -251,7 +324,6 @@ function App() {
     };
     setNotifications((prev) => [notification, ...prev].slice(0, 5));
 
-    // Auto-remove after 5 seconds
     setTimeout(() => {
       setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
     }, 5000);
@@ -282,6 +354,32 @@ function App() {
       });
   };
 
+  // NEW FEATURE 2: Export to Excel
+  const downloadExcel = () => {
+    axios
+      .get("http://127.0.0.1:8000/api/export/excel/", {
+        responseType: "blob",
+      })
+      .then((res) => {
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", "equipment_analysis.xlsx");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        addNotification(
+          "Success",
+          "Excel report downloaded successfully!",
+          "success",
+        );
+      })
+      .catch((error) => {
+        console.error("Excel download failed:", error);
+        addNotification("Error", "Failed to generate Excel.", "error");
+      });
+  };
+
   const exportToCSV = () => {
     if (!summary) return;
 
@@ -309,7 +407,6 @@ function App() {
     addNotification("Success", "CSV exported successfully!", "success");
   };
 
-  // NEW: Resolve alert
   const resolveAlert = async (alertId) => {
     try {
       await axios.post(
@@ -323,7 +420,6 @@ function App() {
     }
   };
 
-  // NEW: Toggle equipment selection for comparison
   const toggleCompareSelection = (equipmentName) => {
     setSelectedForCompare((prev) => {
       if (prev.includes(equipmentName)) {
@@ -335,7 +431,6 @@ function App() {
     });
   };
 
-  // NEW: Compare equipment
   const compareEquipment = async () => {
     if (selectedForCompare.length < 2) {
       addNotification(
@@ -358,7 +453,6 @@ function App() {
     }
   };
 
-  // NEW: Create maintenance schedule
   const createMaintenance = async (maintenanceData) => {
     try {
       await axios.post(
@@ -373,7 +467,6 @@ function App() {
     }
   };
 
-  // NEW: Update maintenance status
   const updateMaintenanceStatus = async (scheduleId, status) => {
     try {
       await axios.post(
@@ -385,6 +478,53 @@ function App() {
     } catch (error) {
       addNotification("Error", "Failed to update status", "error");
     }
+  };
+
+  // NEW: Email report functions
+  const scheduleEmailReport = async (scheduleData) => {
+    try {
+      await axios.post(
+        "http://127.0.0.1:8000/api/email-reports/schedule/",
+        scheduleData,
+      );
+      addNotification("Success", "Email report scheduled!", "success");
+      fetchEmailSchedules();
+      setShowEmailModal(false);
+    } catch (error) {
+      addNotification("Error", "Failed to schedule email report", "error");
+    }
+  };
+
+  const toggleEmailSchedule = async (scheduleId, currentActive) => {
+    try {
+      await axios.post(
+        `http://127.0.0.1:8000/api/email-reports/${scheduleId}/update/`,
+        { active: !currentActive },
+      );
+      addNotification("Success", "Schedule updated!", "success");
+      fetchEmailSchedules();
+    } catch (error) {
+      addNotification("Error", "Failed to update schedule", "error");
+    }
+  };
+
+  const deleteEmailSchedule = async (scheduleId) => {
+    try {
+      await axios.delete(
+        `http://127.0.0.1:8000/api/email-reports/${scheduleId}/delete/`,
+      );
+      addNotification("Success", "Schedule deleted!", "success");
+      fetchEmailSchedules();
+    } catch (error) {
+      addNotification("Error", "Failed to delete schedule", "error");
+    }
+  };
+
+  const getMedalEmoji = (rank) => {
+    if (rank === 1) return "🥇";
+    if (rank === 2) return "🥈";
+    if (rank === 3) return "🥉";
+    return "🏅";
   };
 
   const getChartData = () => {
@@ -458,7 +598,6 @@ function App() {
       };
     }
 
-    // Bar chart
     return {
       labels,
       datasets: [
@@ -579,7 +718,6 @@ function App() {
     };
   };
 
-  // NEW: Comparison chart data
   const getComparisonData = () => {
     if (!comparisonData) return null;
 
@@ -783,13 +921,12 @@ function App() {
     return Math.round((flowrateScore + pressureScore + tempScore) / 3);
   };
 
-  // Show login page if not authenticated
   if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
   }
 
   return (
-    <div className={`app-container ${darkMode ? "dark-mode" : ""}`}>
+    <div className="app-container">
       {/* Notifications */}
       <div className="notifications-container">
         <AnimatePresence>
@@ -832,13 +969,13 @@ function App() {
         </motion.div>
 
         <div className="header-controls">
-          <button
-            className="theme-toggle"
-            onClick={() => setDarkMode(!darkMode)}
-            title={darkMode ? "Light Mode" : "Dark Mode"}
-          >
-            {darkMode ? "☀️" : "🌙"}
-          </button>
+          {/* NEW FEATURE 4: Enhanced Theme Toggle */}
+          <div className="theme-toggle-container">
+            <button className="theme-toggle" onClick={toggleTheme}>
+              <span className="theme-icon sun-icon">☀️</span>
+              <span className="theme-icon moon-icon">🌙</span>
+            </button>
+          </div>
           <button
             className="alerts-toggle"
             onClick={() => setShowAlerts(!showAlerts)}
@@ -858,7 +995,7 @@ function App() {
         </div>
       </header>
 
-      {/* Alerts Panel */}
+      {/* Alerts Panel - NEW FEATURE 5: Shows predictive alerts */}
       <AnimatePresence>
         {showAlerts && allAlerts.length > 0 && (
           <motion.div
@@ -884,15 +1021,34 @@ function App() {
               {allAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className={`alert-card alert-${alert.alert_type.toLowerCase()} ${alert.resolved ? "resolved" : ""}`}
+                  className={`alert-card alert-${alert.alert_type.toLowerCase()} ${alert.resolved ? "resolved" : ""} ${alert.alert_type === "PREDICTIVE" ? "predictive-alert" : ""}`}
                 >
                   <div className="alert-header">
                     <span className="alert-icon">
-                      {alert.alert_type === "CRITICAL" ? "🚨" : "⚠️"}
+                      {alert.alert_type === "CRITICAL"
+                        ? "🚨"
+                        : alert.alert_type === "PREDICTIVE"
+                          ? "🔮"
+                          : "⚠️"}
                     </span>
                     <strong>{alert.equipment_name}</strong>
+                    {/* NEW FEATURE 5: Confidence score display */}
+                    {alert.confidence_score && (
+                      <span className="confidence-badge">
+                        {alert.confidence_score}% confidence
+                      </span>
+                    )}
                   </div>
                   <p className="alert-message">{alert.message}</p>
+                  {/* NEW FEATURE 5: Predicted failure date */}
+                  {alert.predicted_failure_date && (
+                    <div className="predicted-date">
+                      📅 Predicted:{" "}
+                      {new Date(
+                        alert.predicted_failure_date,
+                      ).toLocaleDateString()}
+                    </div>
+                  )}
                   {alert.recommendation && (
                     <div className="alert-recommendation">
                       💡 {alert.recommendation}
@@ -974,12 +1130,13 @@ function App() {
       {/* Main Content */}
       {summary && !isUploading && (
         <>
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs - NEW FEATURE 3: Added rankings tab */}
           <div className="tabs-container">
             {[
               "dashboard",
               "analytics",
               "equipment",
+              "rankings",
               "trends",
               "maintenance",
               "reports",
@@ -992,6 +1149,7 @@ function App() {
                 {tab === "dashboard" && "📊"}
                 {tab === "analytics" && "📈"}
                 {tab === "equipment" && "🔧"}
+                {tab === "rankings" && "🏆"}
                 {tab === "trends" && "📉"}
                 {tab === "maintenance" && "🛠️"}
                 {tab === "reports" && "📄"}{" "}
@@ -1007,7 +1165,7 @@ function App() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Summary Stats */}
+              {/* Summary Stats - NEW FEATURE 1: Animated Counters */}
               <div className="card">
                 <div className="card-header">
                   <h3>📊 Data Summary</h3>
@@ -1018,8 +1176,9 @@ function App() {
                     >
                       📜 {showHistory ? "Hide" : "Show"} History
                     </button>
-                    <button className="btn btn-success" onClick={exportToCSV}>
-                      📊 Export CSV
+                    {/* NEW FEATURE 2: Excel export button */}
+                    <button className="btn btn-success" onClick={downloadExcel}>
+                      📊 Export Excel
                     </button>
                     <button className="btn" onClick={downloadPDF}>
                       📥 PDF Report
@@ -1036,14 +1195,9 @@ function App() {
                     <div className="stat-icon">📝</div>
                     <div className="stat-content">
                       <div className="stat-label">Total Records</div>
-                      <motion.div
-                        className="stat-value"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                      >
-                        {summary.total_records}
-                      </motion.div>
+                      <div className="stat-value">
+                        <AnimatedCounter value={summary.total_records} />
+                      </div>
                     </div>
                   </motion.div>
                   <motion.div
@@ -1055,14 +1209,9 @@ function App() {
                     <div className="stat-icon">💧</div>
                     <div className="stat-content">
                       <div className="stat-label">Avg Flowrate</div>
-                      <motion.div
-                        className="stat-value"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.1 }}
-                      >
-                        {summary.avg_flowrate.toFixed(2)}
-                      </motion.div>
+                      <div className="stat-value">
+                        <AnimatedCounter value={summary.avg_flowrate} />
+                      </div>
                       <div className="stat-unit">L/min</div>
                     </div>
                   </motion.div>
@@ -1075,14 +1224,9 @@ function App() {
                     <div className="stat-icon">⚡</div>
                     <div className="stat-content">
                       <div className="stat-label">Avg Pressure</div>
-                      <motion.div
-                        className="stat-value"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.2 }}
-                      >
-                        {summary.avg_pressure.toFixed(2)}
-                      </motion.div>
+                      <div className="stat-value">
+                        <AnimatedCounter value={summary.avg_pressure} />
+                      </div>
                       <div className="stat-unit">bar</div>
                     </div>
                   </motion.div>
@@ -1095,14 +1239,9 @@ function App() {
                     <div className="stat-icon">🌡️</div>
                     <div className="stat-content">
                       <div className="stat-label">Avg Temperature</div>
-                      <motion.div
-                        className="stat-value"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                      >
-                        {summary.avg_temperature.toFixed(2)}
-                      </motion.div>
+                      <div className="stat-value">
+                        <AnimatedCounter value={summary.avg_temperature} />
+                      </div>
                       <div className="stat-unit">°C</div>
                     </div>
                   </motion.div>
@@ -1187,8 +1326,8 @@ function App() {
                 )}
               </AnimatePresence>
 
-              {/* Equipment Distribution Chart */}
-              <div className="card">
+              {/* Equipment Distribution Chart - NEW FEATURE 6: Fullscreen button */}
+              <div className="card" style={{ position: "relative" }}>
                 <div className="card-header">
                   <h3>📈 Equipment Distribution</h3>
                   <div className="chart-controls">
@@ -1212,6 +1351,13 @@ function App() {
                     ))}
                   </div>
                 </div>
+                {/* NEW FEATURE 6: Fullscreen expand button */}
+                <button
+                  className="chart-expand-btn"
+                  onClick={() => setFullscreenChart("distribution")}
+                >
+                  🔍 Fullscreen
+                </button>
                 <div
                   className="chart-container"
                   style={{ position: "relative", minHeight: "400px" }}
@@ -1677,7 +1823,49 @@ function App() {
             </motion.div>
           )}
 
-          {/* Trends Tab - NEW */}
+          {/* NEW FEATURE 3: Rankings Tab */}
+          {activeTab === "rankings" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="card">
+                <h3>🏆 Performance Rankings</h3>
+                <div className="rankings-container">
+                  {rankings.map((ranking, index) => (
+                    <motion.div
+                      key={ranking.rank}
+                      initial={{ opacity: 0, x: -50 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="ranking-item"
+                    >
+                      <div className="ranking-medal">
+                        {getMedalEmoji(ranking.rank)}
+                      </div>
+                      <div className="ranking-details">
+                        <div className="ranking-name">
+                          {ranking.equipment_name}
+                        </div>
+                        <div className="ranking-type">
+                          {ranking.equipment_type}
+                        </div>
+                      </div>
+                      <div className="ranking-score">
+                        <span className="score-value">
+                          <AnimatedCounter value={ranking.overall_score} />
+                        </span>
+                        <span className="score-label">Overall Score</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Trends Tab */}
           {activeTab === "trends" && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -1717,7 +1905,7 @@ function App() {
             </motion.div>
           )}
 
-          {/* Maintenance Tab - NEW */}
+          {/* Maintenance Tab */}
           {activeTab === "maintenance" && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -1805,7 +1993,7 @@ function App() {
             </motion.div>
           )}
 
-          {/* Reports Tab */}
+          {/* Reports Tab - NEW FEATURE 2 & 7: Excel export and Email reports */}
           {activeTab === "reports" && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -1825,19 +2013,70 @@ function App() {
                   <p>Raw data export for further analysis</p>
                   <button className="btn btn-success">Export CSV</button>
                 </div>
-                <div className="report-card">
+                {/* NEW FEATURE 2: Excel Export */}
+                <div className="report-card" onClick={downloadExcel}>
                   <div className="report-icon">📈</div>
                   <h4>Excel Report</h4>
                   <p>Detailed report with multiple sheets</p>
-                  <button className="btn btn-secondary">Coming Soon</button>
+                  <button className="btn btn-success">Export Excel</button>
                 </div>
-                <div className="report-card">
+                {/* NEW FEATURE 7: Email Reports */}
+                <div
+                  className="report-card"
+                  onClick={() => setShowEmailModal(true)}
+                >
                   <div className="report-icon">📧</div>
                   <h4>Email Report</h4>
                   <p>Schedule automated email reports</p>
-                  <button className="btn btn-secondary">Coming Soon</button>
+                  <button className="btn btn-secondary">Configure</button>
                 </div>
               </div>
+
+              {/* NEW FEATURE 7: Email Schedules List */}
+              {emailSchedules.length > 0 && (
+                <div className="card">
+                  <h3>📧 Scheduled Email Reports</h3>
+                  <div className="email-schedules-list">
+                    {emailSchedules.map((schedule) => (
+                      <div key={schedule.id} className="email-schedule-card">
+                        <div className="schedule-header">
+                          <span className="schedule-frequency">
+                            {schedule.frequency}
+                          </span>
+                          <div className="schedule-actions">
+                            <button
+                              className={`schedule-toggle ${schedule.active ? "active" : ""}`}
+                              onClick={() =>
+                                toggleEmailSchedule(
+                                  schedule.id,
+                                  schedule.active,
+                                )
+                              }
+                            >
+                              {schedule.active ? "✓ Active" : "Paused"}
+                            </button>
+                            <button
+                              className="schedule-delete"
+                              onClick={() => deleteEmailSchedule(schedule.id)}
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+                        </div>
+                        <p>
+                          <strong>Email:</strong> {schedule.email}
+                        </p>
+                        {schedule.last_sent && (
+                          <p>
+                            <strong>Last Sent:</strong>{" "}
+                            {new Date(schedule.last_sent).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </>
@@ -1928,7 +2167,7 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Maintenance Modal - NEW */}
+      {/* Maintenance Modal */}
       <AnimatePresence>
         {showMaintenanceModal && (
           <motion.div
@@ -2031,6 +2270,174 @@ function App() {
                     type="button"
                     className="btn btn-secondary"
                     onClick={() => setShowMaintenanceModal(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* NEW FEATURE 6: Fullscreen Chart Modal */}
+      <AnimatePresence>
+        {fullscreenChart && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="chart-fullscreen-overlay"
+            onClick={() => setFullscreenChart(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="chart-fullscreen-content"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                className="chart-fullscreen-close"
+                onClick={() => setFullscreenChart(null)}
+              >
+                ✕
+              </button>
+              <h2>📈 Equipment Distribution - Fullscreen View</h2>
+              <div style={{ height: "70vh", marginTop: "30px" }}>
+                {selectedChart === "bar" && (
+                  <Bar
+                    data={getChartData()}
+                    options={{
+                      ...chartOptions,
+                      maintainAspectRatio: false,
+                    }}
+                  />
+                )}
+                {selectedChart === "line" && (
+                  <Line
+                    data={getChartData()}
+                    options={{
+                      ...chartOptions,
+                      maintainAspectRatio: false,
+                    }}
+                  />
+                )}
+                {selectedChart === "doughnut" && (
+                  <Doughnut
+                    data={getChartData()}
+                    options={{
+                      ...chartOptions,
+                      maintainAspectRatio: false,
+                    }}
+                  />
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* NEW FEATURE 7: Email Report Modal */}
+      <AnimatePresence>
+        {showEmailModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="modal-overlay"
+            onClick={() => setShowEmailModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                className="modal-close"
+                onClick={() => setShowEmailModal(false)}
+              >
+                ✕
+              </button>
+              <h2>📧 Schedule Email Reports</h2>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  scheduleEmailReport({
+                    frequency: formData.get("frequency"),
+                    email: formData.get("email"),
+                    include_summary: formData.get("include_summary") === "on",
+                    include_charts: formData.get("include_charts") === "on",
+                    include_alerts: formData.get("include_alerts") === "on",
+                    include_analytics:
+                      formData.get("include_analytics") === "on",
+                  });
+                }}
+                className="email-schedule-form"
+              >
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    placeholder="your@email.com"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Frequency</label>
+                  <select name="frequency" required>
+                    <option value="DAILY">Daily</option>
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="MONTHLY">Monthly</option>
+                  </select>
+                </div>
+                <div className="checkbox-group">
+                  <label>Include in Report:</label>
+                  <div className="checkbox-item">
+                    <input
+                      type="checkbox"
+                      name="include_summary"
+                      defaultChecked
+                    />
+                    <label>Summary Statistics</label>
+                  </div>
+                  <div className="checkbox-item">
+                    <input
+                      type="checkbox"
+                      name="include_charts"
+                      defaultChecked
+                    />
+                    <label>Charts & Visualizations</label>
+                  </div>
+                  <div className="checkbox-item">
+                    <input
+                      type="checkbox"
+                      name="include_alerts"
+                      defaultChecked
+                    />
+                    <label>Active Alerts</label>
+                  </div>
+                  <div className="checkbox-item">
+                    <input
+                      type="checkbox"
+                      name="include_analytics"
+                      defaultChecked
+                    />
+                    <label>Advanced Analytics</label>
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-success">
+                    Schedule Report
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowEmailModal(false)}
                   >
                     Cancel
                   </button>
