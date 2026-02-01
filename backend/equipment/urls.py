@@ -1,10 +1,14 @@
 from django.urls import path
-from . import views
+from . import views, auth_views
 
 urlpatterns = [
+    # Auth endpoints
+    path('auth/register/', auth_views.register),
+    path('auth/login/', auth_views.login),
+    
+    # Existing endpoints
     path('upload/', views.upload_csv),
     path('history/', views.get_trends),
-
     path('report/', views.generate_pdf),
     
     # New endpoints

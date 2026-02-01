@@ -17,9 +17,10 @@ import {
   Filler,
 } from "chart.js";
 import { Bar, Line, Doughnut, Radar } from "react-chartjs-2";
+import Login from "./Login";
 import "./styles/App.css";
 import "./styles/App.css";
-import "./styles/NewFeatures.css";  
+import "./styles/NewFeatures.css";
 
 ChartJS.register(
   CategoryScale,
@@ -35,11 +36,25 @@ ChartJS.register(
   Filler,
 );
 
+// Configure axios interceptor for JWT token
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 function App() {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+
+  // Existing state
   const [summary, setSummary] = useState(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
   const [history, setHistory] = useState([]);
- const [, setAlerts] = useState([]);
+  const [, setAlerts] = useState([]);
 
   const [fileName, setFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -64,13 +79,30 @@ function App() {
   const [maintenanceSchedule, setMaintenanceSchedule] = useState([]);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
 
-  const auth = useMemo(
-    () => ({
-      username: "vinayak",
-      password: "test@1234",
-    }),
-    [],
-  );
+  // Check authentication on mount
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+    if (token && savedUser) {
+      setIsAuthenticated(true);
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
+
+  const handleLogin = (userData, token) => {
+    setIsAuthenticated(true);
+    setUser(userData);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("refresh");
+    localStorage.removeItem("user");
+    setIsAuthenticated(false);
+    setUser(null);
+    setSummary(null);
+    setRawData([]);
+  };
 
   // Apply dark mode to document body
   useEffect(() => {
@@ -82,68 +114,68 @@ function App() {
   }, [darkMode]);
 
   const fetchHistory = useCallback(async () => {
+    if (!isAuthenticated) return;
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/history/", {
-        auth,
-      });
+      const response = await axios.get("http://127.0.0.1:8000/api/history/");
       setHistory(response.data.history || response.data);
-
     } catch (error) {
       console.error("Failed to fetch history:", error);
     }
-  }, [auth]);
+  }, [isAuthenticated]);
 
   // NEW: Fetch alerts
   const fetchAlerts = useCallback(async () => {
+    if (!isAuthenticated) return;
     try {
       const response = await axios.get(
         `http://127.0.0.1:8000/api/alerts/?resolved=${showResolvedAlerts}`,
-        {
-          auth,
-        },
       );
       setAllAlerts(response.data);
     } catch (error) {
       console.error("Failed to fetch alerts:", error);
     }
-  }, [auth, showResolvedAlerts]);
+  }, [isAuthenticated, showResolvedAlerts]);
 
   // NEW: Fetch trends
   const fetchTrends = useCallback(async () => {
+    if (!isAuthenticated) return;
     try {
       const response = await axios.get(
         "http://127.0.0.1:8000/api/trends/?days=30",
-        {
-          auth,
-        },
       );
       setTrendsData(response.data);
     } catch (error) {
       console.error("Failed to fetch trends:", error);
     }
-  }, [auth]);
+  }, [isAuthenticated]);
 
   // NEW: Fetch maintenance schedule
   const fetchMaintenance = useCallback(async () => {
+    if (!isAuthenticated) return;
     try {
       const response = await axios.get(
         "http://127.0.0.1:8000/api/maintenance/",
-        {
-          auth,
-        },
       );
       setMaintenanceSchedule(response.data);
     } catch (error) {
       console.error("Failed to fetch maintenance:", error);
     }
-  }, [auth]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    fetchHistory();
-    fetchAlerts();
-    fetchTrends();
-    fetchMaintenance();
-  }, [fetchHistory, fetchAlerts, fetchTrends, fetchMaintenance]);
+    if (isAuthenticated) {
+      fetchHistory();
+      fetchAlerts();
+      fetchTrends();
+      fetchMaintenance();
+    }
+  }, [
+    isAuthenticated,
+    fetchHistory,
+    fetchAlerts,
+    fetchTrends,
+    fetchMaintenance,
+  ]);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -159,7 +191,6 @@ function App() {
       const response = await axios.post(
         "http://127.0.0.1:8000/api/upload/",
         formData,
-        { auth },
       );
 
       setSummary(response.data);
@@ -229,7 +260,6 @@ function App() {
   const downloadPDF = () => {
     axios
       .get("http://127.0.0.1:8000/api/report/", {
-        auth,
         responseType: "blob",
       })
       .then((res) => {
@@ -285,7 +315,6 @@ function App() {
       await axios.post(
         `http://127.0.0.1:8000/api/alerts/${alertId}/resolve/`,
         {},
-        { auth },
       );
       addNotification("Success", "Alert resolved!", "success");
       fetchAlerts();
@@ -321,7 +350,6 @@ function App() {
       const response = await axios.post(
         "http://127.0.0.1:8000/api/compare-equipment/",
         { equipment_names: selectedForCompare },
-        { auth },
       );
       setComparisonData(response.data);
       addNotification("Success", "Equipment compared successfully!", "success");
@@ -336,7 +364,6 @@ function App() {
       await axios.post(
         "http://127.0.0.1:8000/api/maintenance/create/",
         maintenanceData,
-        { auth },
       );
       addNotification("Success", "Maintenance scheduled!", "success");
       fetchMaintenance();
@@ -352,7 +379,6 @@ function App() {
       await axios.post(
         `http://127.0.0.1:8000/api/maintenance/${scheduleId}/update/`,
         { status },
-        { auth },
       );
       addNotification("Success", "Status updated!", "success");
       fetchMaintenance();
@@ -582,6 +608,11 @@ function App() {
     return Math.round((flowrateScore + pressureScore + tempScore) / 3);
   };
 
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
     <div className={`app-container ${darkMode ? "dark-mode" : ""}`}>
       {/* Notifications */}
@@ -641,6 +672,13 @@ function App() {
             {allAlerts.length > 0 && (
               <span className="alert-badge">{allAlerts.length}</span>
             )}
+          </button>
+          <button
+            className="theme-toggle"
+            onClick={handleLogout}
+            title="Logout"
+          >
+            🚪
           </button>
         </div>
       </header>
