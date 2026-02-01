@@ -1,6 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
+    --gold: #ffd700;
+  --silver: #c0c0c0;
+  --bronze: #cd7f32;
+  --score-color: #667eea;
+  --score-color-light: #764ba2;
   --primary: #667eea;
   --primary-dark: #5568d3;
   --secondary: #764ba2;

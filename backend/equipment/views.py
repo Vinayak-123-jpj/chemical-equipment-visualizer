@@ -453,126 +453,154 @@ def generate_pdf(request):
     return response
 
 
+"""
+FIXED VERSION OF export_to_excel function
+Replace the existing function in backend/equipment/views.py with this version
+"""
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.chart import BarChart, Reference
+from django.http import HttpResponse
+from io import BytesIO
+from datetime import datetime
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def export_to_excel(request):
     """Export comprehensive data to Excel with multiple sheets and charts"""
-    dataset = Dataset.objects.order_by('-uploaded_at').first()
-    
-    if not dataset:
-        return Response({"error": "No data available"}, status=400)
-    
-    wb = Workbook()
-    
-    # Sheet 1: Summary
-    ws_summary = wb.active
-    ws_summary.title = "Summary"
-    
-    # Header styling
-    header_fill = PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=12)
-    
-    ws_summary['A1'] = "Equipment Analysis Report"
-    ws_summary['A1'].font = Font(bold=True, size=16, color="667EEA")
-    ws_summary.merge_cells('A1:B1')
-    
-    ws_summary['A3'] = "Generated"
-    ws_summary['B3'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-    ws_summary['A5'] = "Metric"
-    ws_summary['B5'] = "Value"
-    ws_summary['A5'].fill = header_fill
-    ws_summary['B5'].fill = header_fill
-    ws_summary['A5'].font = header_font
-    ws_summary['B5'].font = header_font
-    
-    summary_data = [
-        ["Total Records", dataset.total_records],
-        ["Average Flowrate (L/min)", round(dataset.avg_flowrate, 2)],
-        ["Average Pressure (bar)", round(dataset.avg_pressure, 2)],
-        ["Average Temperature (°C)", round(dataset.avg_temperature, 2)],
-    ]
-    
-    for i, row_data in enumerate(summary_data, start=6):
-        ws_summary[f'A{i}'] = row_data[0]
-        ws_summary[f'B{i}'] = row_data[1]
-    
-    # Sheet 2: Equipment Details
-    ws_equipment = wb.create_sheet("Equipment Details")
-    headers = ["Equipment Name", "Type", "Flowrate", "Pressure", "Temperature", "Health Score"]
-    ws_equipment.append(headers)
-    
-    for cell in ws_equipment[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center")
-    
-    equipment_params = EquipmentParameter.objects.filter(dataset=dataset)
-    for param in equipment_params:
-        ws_equipment.append([
-            param.equipment_name,
-            param.equipment_type,
-            param.flowrate,
-            param.pressure,
-            param.temperature,
-            param.health_score
-        ])
-    
-    # Sheet 3: Rankings
-    ws_rankings = wb.create_sheet("Performance Rankings")
-    rank_headers = ["Rank", "Equipment", "Type", "Overall Score", "Efficiency Rank", "Performance Rank"]
-    ws_rankings.append(rank_headers)
-    
-    for cell in ws_rankings[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-    
-    rankings = EquipmentRanking.objects.all()[:20]
-    for i, ranking in enumerate(rankings, start=1):
-        ws_rankings.append([
-            i,
-            ranking.equipment_name,
-            ranking.equipment_type,
-            round(ranking.overall_score, 2),
-            ranking.efficiency_rank,
-            ranking.performance_rank
-        ])
-    
-    # Sheet 4: Alerts
-    ws_alerts = wb.create_sheet("Alerts")
-    alert_headers = ["Equipment", "Type", "Parameter", "Value", "Threshold", "Message"]
-    ws_alerts.append(alert_headers)
-    
-    for cell in ws_alerts[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-    
-    alerts = EquipmentAlert.objects.filter(resolved=False)[:50]
-    for alert in alerts:
-        ws_alerts.append([
-            alert.equipment_name,
-            alert.alert_type,
-            alert.parameter,
-            alert.value,
-            alert.threshold,
-            alert.message
-        ])
-    
-    # Add chart to equipment sheet
-    chart = BarChart()
-    chart.title = "Equipment Health Scores"
-    chart.x_axis.title = "Equipment"
-    chart.y_axis.title = "Health Score"
-    
-    data = Reference(ws_equipment, min_col=6, min_row=1, max_row=len(equipment_params)+1)
-    cats = Reference(ws_equipment, min_col=1, min_row=2, max_row=len(equipment_params)+1)
-    chart.add_data(data, titles_from_data=True)
-    chart.set_categories(cats)
-    ws_equipment.add_chart(chart, "H2")
-    
-    # Auto-size columns
-    for ws in [ws_summary, ws_equipment, ws_rankings, ws_alerts]:
-        for column in ws.columns:
+    try:
+        # Get the latest dataset
+        from .models import Dataset, EquipmentParameter, EquipmentRanking, EquipmentAlert
+        
+        dataset = Dataset.objects.order_by('-uploaded_at').first()
+        
+        if not dataset:
+            return Response({'error': 'No data available'}, status=400)
+        
+        # Create workbook
+        wb = Workbook()
+        
+        # ========================================
+        # Sheet 1: Summary
+        # ========================================
+        ws_summary = wb.active
+        ws_summary.title = "Summary"
+        
+        # Header styling
+        header_fill = PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=12)
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Title
+        ws_summary['A1'] = "Equipment Analysis Report"
+        ws_summary['A1'].font = Font(bold=True, size=16, color="667EEA")
+        ws_summary.merge_cells('A1:B1')
+        
+        # Timestamp
+        ws_summary['A3'] = "Generated"
+        ws_summary['B3'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Headers
+        ws_summary['A5'] = "Metric"
+        ws_summary['B5'] = "Value"
+        ws_summary['A5'].fill = header_fill
+        ws_summary['B5'].fill = header_fill
+        ws_summary['A5'].font = header_font
+        ws_summary['B5'].font = header_font
+        ws_summary['A5'].border = border
+        ws_summary['B5'].border = border
+        
+        # Summary data
+        summary_data = [
+            ["Total Records", dataset.total_records],
+            ["Average Flowrate (L/min)", round(dataset.avg_flowrate, 2)],
+            ["Average Pressure (bar)", round(dataset.avg_pressure, 2)],
+            ["Average Temperature (°C)", round(dataset.avg_temperature, 2)],
+        ]
+        
+        row = 6
+        for metric, value in summary_data:
+            ws_summary[f'A{row}'] = metric
+            ws_summary[f'B{row}'] = value
+            ws_summary[f'A{row}'].border = border
+            ws_summary[f'B{row}'].border = border
+            ws_summary[f'B{row}'].alignment = Alignment(horizontal='right')
+            row += 1
+        
+        # Auto-size columns
+        ws_summary.column_dimensions['A'].width = 30
+        ws_summary.column_dimensions['B'].width = 20
+        
+        # ========================================
+        # Sheet 2: Equipment Details
+        # ========================================
+        ws_equipment = wb.create_sheet("Equipment Details")
+        headers = ["Equipment Name", "Type", "Flowrate", "Pressure", "Temperature", "Health Score"]
+        ws_equipment.append(headers)
+        
+        # Style headers
+        for col_num, cell in enumerate(ws_equipment[1], 1):
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center")
+            cell.border = border
+        
+        # Get equipment parameters
+        equipment_params = EquipmentParameter.objects.filter(dataset=dataset)
+        
+        if equipment_params.exists():
+            for param in equipment_params:
+                row_data = [
+                    param.equipment_name,
+                    param.equipment_type,
+                    round(param.flowrate, 2),
+                    round(param.pressure, 2),
+                    round(param.temperature, 2),
+                    round(param.health_score, 2) if param.health_score else 0
+                ]
+                ws_equipment.append(row_data)
+                
+                # Add borders to data cells
+                for cell in ws_equipment[ws_equipment.max_row]:
+                    cell.border = border
+            
+            # Add chart only if we have data
+            try:
+                chart = BarChart()
+                chart.title = "Equipment Health Scores"
+                chart.x_axis.title = "Equipment"
+                chart.y_axis.title = "Health Score"
+                chart.style = 10
+                
+                # Reference data for chart
+                data = Reference(ws_equipment, min_col=6, min_row=1, max_row=min(equipment_params.count() + 1, 20))
+                cats = Reference(ws_equipment, min_col=1, min_row=2, max_row=min(equipment_params.count() + 1, 20))
+                
+                chart.add_data(data, titles_from_data=True)
+                chart.set_categories(cats)
+                chart.height = 10
+                chart.width = 20
+                
+                ws_equipment.add_chart(chart, "H2")
+            except Exception as chart_error:
+                print(f"Chart creation error: {chart_error}")
+                # Continue without chart
+        else:
+            # Add a message if no data
+            ws_equipment.append(["No equipment data available"])
+        
+        # Auto-size columns
+        for column in ws_equipment.columns:
             max_length = 0
             column_letter = column[0].column_letter
             for cell in column:
@@ -582,20 +610,146 @@ def export_to_excel(request):
                 except:
                     pass
             adjusted_width = min(max_length + 2, 50)
-            ws.column_dimensions[column_letter].width = adjusted_width
-    
-    buffer = BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    
-    response = HttpResponse(
-        buffer,
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = 'attachment; filename="equipment_analysis.xlsx"'
-    
-    return response
-
+            ws_equipment.column_dimensions[column_letter].width = adjusted_width
+        
+        # ========================================
+        # Sheet 3: Rankings
+        # ========================================
+        ws_rankings = wb.create_sheet("Performance Rankings")
+        rank_headers = ["Rank", "Equipment", "Type", "Overall Score", "Efficiency Rank", "Performance Rank"]
+        ws_rankings.append(rank_headers)
+        
+        # Style headers
+        for col_num, cell in enumerate(ws_rankings[1], 1):
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.border = border
+            cell.alignment = Alignment(horizontal="center")
+        
+        # Get rankings
+        rankings = EquipmentRanking.objects.all()[:20]
+        
+        if rankings.exists():
+            for i, ranking in enumerate(rankings, start=1):
+                rank_data = [
+                    i,
+                    ranking.equipment_name,
+                    ranking.equipment_type,
+                    round(ranking.overall_score, 2),
+                    ranking.efficiency_rank,
+                    ranking.performance_rank
+                ]
+                ws_rankings.append(rank_data)
+                
+                # Add borders
+                for cell in ws_rankings[ws_rankings.max_row]:
+                    cell.border = border
+                
+                # Highlight top 3
+                if i <= 3:
+                    for cell in ws_rankings[ws_rankings.max_row]:
+                        if i == 1:
+                            cell.fill = PatternFill(start_color="FFD700", end_color="FFD700", fill_type="solid")
+                        elif i == 2:
+                            cell.fill = PatternFill(start_color="C0C0C0", end_color="C0C0C0", fill_type="solid")
+                        elif i == 3:
+                            cell.fill = PatternFill(start_color="CD7F32", end_color="CD7F32", fill_type="solid")
+        else:
+            ws_rankings.append(["No ranking data available"])
+        
+        # Auto-size columns
+        for column in ws_rankings.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws_rankings.column_dimensions[column_letter].width = adjusted_width
+        
+        # ========================================
+        # Sheet 4: Alerts
+        # ========================================
+        ws_alerts = wb.create_sheet("Active Alerts")
+        alert_headers = ["Equipment", "Type", "Parameter", "Value", "Threshold", "Message", "Created"]
+        ws_alerts.append(alert_headers)
+        
+        # Style headers
+        for col_num, cell in enumerate(ws_alerts[1], 1):
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.border = border
+            cell.alignment = Alignment(horizontal="center")
+        
+        # Get active alerts
+        alerts = EquipmentAlert.objects.filter(resolved=False).order_by('-created_at')[:50]
+        
+        if alerts.exists():
+            for alert in alerts:
+                alert_data = [
+                    alert.equipment_name,
+                    alert.alert_type,
+                    alert.parameter,
+                    round(alert.value, 2),
+                    round(alert.threshold, 2),
+                    alert.message,
+                    alert.created_at.strftime('%Y-%m-%d %H:%M')
+                ]
+                ws_alerts.append(alert_data)
+                
+                # Add borders
+                for cell in ws_alerts[ws_alerts.max_row]:
+                    cell.border = border
+                
+                # Color code by type
+                if alert.alert_type == 'CRITICAL':
+                    for cell in ws_alerts[ws_alerts.max_row]:
+                        cell.fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
+                elif alert.alert_type == 'WARNING':
+                    for cell in ws_alerts[ws_alerts.max_row]:
+                        cell.fill = PatternFill(start_color="FFFFCC", end_color="FFFFCC", fill_type="solid")
+        else:
+            ws_alerts.append(["No active alerts"])
+        
+        # Auto-size columns
+        for column in ws_alerts.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws_alerts.column_dimensions[column_letter].width = adjusted_width
+        
+        # ========================================
+        # Save and return
+        # ========================================
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        response = HttpResponse(
+            buffer,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="equipment_analysis_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+        
+        return response
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Excel export error: {error_details}")
+        return Response({
+            'error': f'Failed to generate Excel report: {str(e)}',
+            'details': error_details
+        }, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
