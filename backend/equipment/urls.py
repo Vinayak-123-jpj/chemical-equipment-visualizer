@@ -7,7 +7,7 @@ urlpatterns = [
     path('auth/login/', auth_views.login),
     
     # Existing endpoints
-    path('upload/', views.upload_csv),
+  path('upload/', cors_views.upload_csv_wrapper),
     path('history/', views.get_trends),
     path('report/', views.generate_pdf),
     

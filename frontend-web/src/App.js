@@ -34,22 +34,41 @@ ChartJS.register(
   Filler,
 );
 
-axios.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// Request interceptor - adds auth token to all requests
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  },
+);
+
+// Response interceptor - handles auth errors globally
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.log("Authentication failed - token may be expired");
+    }
+    return Promise.reject(error);
+  },
+);
+
+// API URL Configuration
+const API_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:8000";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [, setUser] = useState(null);
 
-const [, setEmailSchedules] = React.useState([]);
-const [, setSelectedEquipment] = React.useState([]);
-const [, setShowMaintenanceModal] = React.useState(false);
-
+  const [, setEmailSchedules] = React.useState([]);
+  const [, setSelectedEquipment] = React.useState([]);
+  const [, setShowMaintenanceModal] = React.useState(false);
 
   const [summary, setSummary] = useState(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
@@ -63,7 +82,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
   const [sortBy, setSortBy] = useState("name");
   const [rawData, setRawData] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
- 
+
   const [showAlerts, setShowAlerts] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [allAlerts, setAllAlerts] = useState([]);
@@ -73,11 +92,10 @@ const [, setShowMaintenanceModal] = React.useState(false);
   const [comparisonData, setComparisonData] = useState(null);
   const [trendsData, setTrendsData] = useState(null);
   const [maintenanceSchedule, setMaintenanceSchedule] = useState([]);
- 
+
   const [theme, setTheme] = useState("light");
   const [rankings, setRankings] = useState([]);
   const [fullscreenChart, setFullscreenChart] = useState(null);
-
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -120,9 +138,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
   const fetchHistory = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const response = await axios.get(
-        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/trends/?days=90",
-      );
+      const response = await axios.get(`${API_URL}/api/trends/?days=90`);
       if (response.data && response.data.dates) {
         const historyItems = response.data.dates.map((date, index) => ({
           date: date,
@@ -142,7 +158,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_API_URL || "http://127.0.0.1:8000"}/api/alerts/?resolved=${showResolvedAlerts}`,
+        `${API_URL}/api/alerts/?resolved=${showResolvedAlerts}`,
       );
       setAllAlerts(response.data);
     } catch (error) {
@@ -153,9 +169,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
   const fetchTrends = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const response = await axios.get(
-        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/trends/?days=30",
-      );
+      const response = await axios.get(`${API_URL}/api/trends/?days=30`);
       setTrendsData(response.data);
     } catch (error) {
       console.error("Failed to fetch trends:", error);
@@ -165,9 +179,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
   const fetchMaintenance = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const response = await axios.get(
-        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/maintenance/",
-      );
+      const response = await axios.get(`${API_URL}/api/maintenance/`);
       setMaintenanceSchedule(response.data);
     } catch (error) {
       console.error("Failed to fetch maintenance:", error);
@@ -177,9 +189,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
   const fetchRankings = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const response = await axios.get(
-        "${process.env.REACT_APP_API_URL|| 'http://127.0.0.1:8000'}/api/rankings/",
-      );
+      const response = await axios.get(`${API_URL}/api/rankings/`);
       setRankings(response.data);
     } catch (error) {
       console.error("Failed to fetch rankings:", error);
@@ -189,10 +199,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
   const fetchEmailSchedules = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const response = await axios.get(
-        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/email-reports/",
-      );
-      
+      const response = await axios.get(`${API_URL}/api/email-reports/`);
 
       setEmailSchedules(response.data);
     } catch (error) {
@@ -230,10 +237,19 @@ const [, setShowMaintenanceModal] = React.useState(false);
     formData.append("file", file);
 
     try {
-      const response = await axios.post(
-        "${process.env.REACT_APP_API_URL || '{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}'}/api/upload/",
-        formData,
+      console.log("Uploading to:", `${API_URL}/api/upload/`);
+      console.log(
+        "Token:",
+        localStorage.getItem("token") ? "Present" : "Missing",
       );
+
+      const response = await axios.post(`${API_URL}/api/upload/`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      console.log("Upload successful:", response.data);
 
       setSummary(response.data);
       setAdvancedAnalytics(response.data.advanced_analytics || null);
@@ -272,11 +288,33 @@ const [, setShowMaintenanceModal] = React.useState(false);
       fetchRankings();
     } catch (error) {
       console.error("Upload failed:", error);
-      addNotification(
-        "Error",
-        "Failed to upload file. Please try again.",
-        "error",
-      );
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+      });
+
+      let errorMessage = "Failed to upload file. Please try again.";
+
+      if (error.response) {
+        if (error.response.status === 405) {
+          errorMessage =
+            "Server configuration error (405). Please check backend CORS settings.";
+        } else if (error.response.status === 401) {
+          errorMessage = "Authentication required. Please login first.";
+        } else if (error.response.status === 403) {
+          errorMessage = "Permission denied (403). Try logging in again.";
+        } else if (error.response.status === 400) {
+          errorMessage = error.response.data?.error || "Invalid file format.";
+        } else if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
+        }
+      } else if (error.request) {
+        errorMessage = `Cannot reach server at ${API_URL}. Please check if backend is running.`;
+      }
+
+      addNotification("Error", errorMessage, "error");
     } finally {
       setIsUploading(false);
     }
@@ -299,12 +337,9 @@ const [, setShowMaintenanceModal] = React.useState(false);
 
   const downloadPDF = () => {
     axios
-      .get(
-        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/report/",
-        {
-          responseType: "blob",
-        },
-      )
+      .get(`${API_URL}/api/report/`, {
+        responseType: "blob",
+      })
       .then((res) => {
         const url = window.URL.createObjectURL(new Blob([res.data]));
         const link = document.createElement("a");
@@ -332,15 +367,12 @@ const [, setShowMaintenanceModal] = React.useState(false);
     }
 
     axios
-      .get(
-        "${process.env.REACT_APP_API_URL|| 'http://127.0.0.1:8000'}/api/export/excel/",
-        {
-          responseType: "blob",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
+      .get(`${API_URL}/api/export/excel/`, {
+        responseType: "blob",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-      )
+      })
       .then((res) => {
         const url = window.URL.createObjectURL(new Blob([res.data]));
         const link = document.createElement("a");
@@ -396,10 +428,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
 
   const resolveAlert = async (alertId) => {
     try {
-      await axios.post(
-        `${process.env.REACT_APP_API_URL || "http://127.0.0.1:8000"}/api/alerts/${alertId}/resolve/`,
-        {},
-      );
+      await axios.post(`${API_URL}/api/alerts/${alertId}/resolve/`, {});
       addNotification("Success", "Alert resolved!", "success");
       fetchAlerts();
     } catch (error) {
@@ -435,10 +464,9 @@ const [, setShowMaintenanceModal] = React.useState(false);
     }
 
     try {
-      const response = await axios.post(
-        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/compare-equipment/",
-        { equipment_names: selectedForCompare },
-      );
+      const response = await axios.post(`${API_URL}/api/compare-equipment/`, {
+        equipment_names: selectedForCompare,
+      });
       setComparisonData(response.data);
       addNotification("Success", "Equipment compared successfully!", "success");
     } catch (error) {
@@ -446,14 +474,11 @@ const [, setShowMaintenanceModal] = React.useState(false);
     }
   };
 
- 
-
   const updateMaintenanceStatus = async (scheduleId, status) => {
     try {
-      await axios.post(
-        `${process.env.REACT_APP_API_URL || "http://127.0.0.1:8000"}/api/maintenance/${scheduleId}/update/`,
-        { status },
-      );
+      await axios.post(`${API_URL}/api/maintenance/${scheduleId}/update/`, {
+        status,
+      });
       addNotification("Success", "Status updated!", "success");
       fetchMaintenance();
     } catch (error) {
