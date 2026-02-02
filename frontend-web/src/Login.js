@@ -23,7 +23,7 @@ function Login({ onLogin }) {
         : { username, password, email };
 
       const response = await axios.post(
-        `http://127.0.0.1:8000${endpoint}`,
+        `https://chemical-equipment-visualizer-8csk.onrender.com/api/login/${endpoint}`,
         data,
       );
 
