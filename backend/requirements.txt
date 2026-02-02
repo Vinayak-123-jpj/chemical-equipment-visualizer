@@ -1,13 +1,14 @@
 setuptools==69.5.1
 wheel
-dj-database-url==2.1.0
 
+dj-database-url==2.1.0
 Django==5.0.1
 djangorestframework==3.14.0
 django-cors-headers==4.3.1
+
 pandas==1.5.3
-
-
+numpy==1.24.4
+scikit-learn==1.2.2
 
 reportlab==4.0.7
 openpyxl==3.1.2
@@ -16,5 +17,3 @@ djangorestframework-simplejwt==5.3.1
 gunicorn==21.2.0
 whitenoise==6.6.0
 psycopg2-binary==2.9.9
-numpy==1.26.4
-scikit-learn==1.2.2
