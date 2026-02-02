@@ -7,11 +7,7 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py collectstatic --no-input
 
-# Create demo user
-echo "from django.contrib.auth.models import User; User.objects.get_or_create(username='demo', defaults={'email': 'demo@example.com'})[0].set_password('demo123'); User.objects.filter(username='demo').first().save()" | python manage.py shell
-
-
-
-
-
-
+# Create superuser from environment variables if CREATE_SUPERUSER is set
+if [ "$CREATE_SUPERUSER" = "1" ]; then
+    python manage.py createsuperuser --noinput --username "$DJANGO_SUPERUSER_USERNAME" --email "$DJANGO_SUPERUSER_EMAIL" || echo "Superuser already exists"
+fi
