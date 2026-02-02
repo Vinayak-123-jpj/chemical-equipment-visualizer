@@ -19,7 +19,6 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.chart import BarChart, Reference, LineChart
 from sklearn.linear_model import LinearRegression
 
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_csv(request):
@@ -28,103 +27,47 @@ def upload_csv(request):
     if not file:
         return Response({"error": "No file uploaded"}, status=400)
 
-    df = pd.read_csv(file)
+    try:
+        df = pd.read_csv(file)
 
-    summary = {
-        "total_records": len(df),
-        "avg_flowrate": df["Flowrate"].mean(),
-        "avg_pressure": df["Pressure"].mean(),
-        "avg_temperature": df["Temperature"].mean(),
-        "type_distribution": df["Type"].value_counts().to_dict()
-    }
-
-    advanced_analytics = {
-        "flowrate_stats": {
-            "min": df["Flowrate"].min(),
-            "max": df["Flowrate"].max(),
-            "std": df["Flowrate"].std(),
-            "median": df["Flowrate"].median(),
-        },
-        "pressure_stats": {
-            "min": df["Pressure"].min(),
-            "max": df["Pressure"].max(),
-            "std": df["Pressure"].std(),
-            "median": df["Pressure"].median(),
-        },
-        "temperature_stats": {
-            "min": df["Temperature"].min(),
-            "max": df["Temperature"].max(),
-            "std": df["Temperature"].std(),
-            "median": df["Temperature"].median(),
-        },
-        "health_scores": calculate_health_scores(df),
-        "anomalies": detect_anomalies(df),
-        "efficiency_metrics": calculate_efficiency_metrics(df),
-        "correlations": {
-            "flowrate_pressure": df[["Flowrate", "Pressure"]].corr().iloc[0, 1],
-            "flowrate_temperature": df[["Flowrate", "Temperature"]].corr().iloc[0, 1],
-            "pressure_temperature": df[["Pressure", "Temperature"]].corr().iloc[0, 1],
+        summary = {
+            "total_records": len(df),
+            "avg_flowrate": float(df["Flowrate"].mean()),
+            "avg_pressure": float(df["Pressure"].mean()),
+            "avg_temperature": float(df["Temperature"].mean()),
+            "type_distribution": df["Type"].value_counts().to_dict()
         }
-    }
 
-    alerts_data = generate_alerts(df)
-
-    dataset = Dataset.objects.create(
-        total_records=summary["total_records"],
-        avg_flowrate=summary["avg_flowrate"],
-        avg_pressure=summary["avg_pressure"],
-        avg_temperature=summary["avg_temperature"],
-        uploaded_by=request.user,
-        file_name=file.name
-    )
-
-    for _, row in df.iterrows():
-        health_score = calculate_single_health_score(row['Flowrate'], row['Pressure'], row['Temperature'])
-        EquipmentParameter.objects.create(
-            dataset=dataset,
-            equipment_name=row['Equipment Name'],
-            equipment_type=row['Type'],
-            flowrate=row['Flowrate'],
-            pressure=row['Pressure'],
-            temperature=row['Temperature'],
-            health_score=health_score
+        # Save to database
+        dataset = Dataset.objects.create(
+            total_records=summary["total_records"],
+            avg_flowrate=summary["avg_flowrate"],
+            avg_pressure=summary["avg_pressure"],
+            avg_temperature=summary["avg_temperature"],
+            uploaded_by=request.user,
+            file_name=file.name
         )
 
-    for alert in alerts_data:
-        EquipmentAlert.objects.create(
-            equipment_name=alert['equipment'],
-            alert_type=alert['type'].upper(),
-            parameter=alert.get('parameter', 'General'),
-            value=alert.get('value', 0),
-            threshold=alert.get('threshold', 0),
-            message=alert['message'],
-            recommendation=alert.get('recommendation', '')
-        )
+        # Save individual parameters
+        for _, row in df.iterrows():
+            EquipmentParameter.objects.create(
+                dataset=dataset,
+                equipment_name=row['Equipment Name'],
+                equipment_type=row['Type'],
+                flowrate=float(row['Flowrate']),
+                pressure=float(row['Pressure']),
+                temperature=float(row['Temperature']),
+            )
 
-    # Generate predictive alerts
-    predictive_alerts = generate_predictive_alerts(df)
-    for alert in predictive_alerts:
-        EquipmentAlert.objects.create(
-            equipment_name=alert['equipment'],
-            alert_type='PREDICTIVE',
-            parameter=alert['parameter'],
-            value=alert['current_value'],
-            threshold=alert['threshold'],
-            message=alert['message'],
-            recommendation=alert['recommendation'],
-            predicted_failure_date=alert['predicted_date'],
-            confidence_score=alert['confidence']
-        )
-
-    # Calculate rankings
-    calculate_equipment_rankings(df)
-
-    return Response({
-        **summary,
-        "advanced_analytics": advanced_analytics,
-        "alerts": alerts_data,
-        "predictive_alerts": predictive_alerts
-    })
+        return Response(summary)
+        
+    except Exception as e:
+        import traceback
+        print(f"Upload error: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            "error": f"Failed to process file: {str(e)}"
+        }, status=500)
 
 
 def calculate_health_scores(df):
