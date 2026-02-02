@@ -121,7 +121,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/trends/?days=90",
+        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/trends/?days=90",
       );
       if (response.data && response.data.dates) {
         const historyItems = response.data.dates.map((date, index) => ({
@@ -154,7 +154,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/trends/?days=30",
+        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/trends/?days=30",
       );
       setTrendsData(response.data);
     } catch (error) {
@@ -166,7 +166,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/maintenance/",
+        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/maintenance/",
       );
       setMaintenanceSchedule(response.data);
     } catch (error) {
@@ -177,7 +177,9 @@ const [, setShowMaintenanceModal] = React.useState(false);
   const fetchRankings = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const response = await axios.get("{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/rankings/");
+      const response = await axios.get(
+        "${process.env.REACT_APP_API_URL|| 'http://127.0.0.1:8000'}/api/rankings/",
+      );
       setRankings(response.data);
     } catch (error) {
       console.error("Failed to fetch rankings:", error);
@@ -188,7 +190,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/email-reports/",
+        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/email-reports/",
       );
       
 
@@ -229,7 +231,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
 
     try {
       const response = await axios.post(
-        "{process.env.REACT_APP_API_URL || '{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}'}/api/upload/",
+        "${process.env.REACT_APP_API_URL || '{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}'}/api/upload/",
         formData,
       );
 
@@ -297,9 +299,12 @@ const [, setShowMaintenanceModal] = React.useState(false);
 
   const downloadPDF = () => {
     axios
-      .get("{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/report/", {
-        responseType: "blob",
-      })
+      .get(
+        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/report/",
+        {
+          responseType: "blob",
+        },
+      )
       .then((res) => {
         const url = window.URL.createObjectURL(new Blob([res.data]));
         const link = document.createElement("a");
@@ -327,12 +332,15 @@ const [, setShowMaintenanceModal] = React.useState(false);
     }
 
     axios
-      .get("{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/export/excel/", {
-        responseType: "blob",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+      .get(
+        "${process.env.REACT_APP_API_URL|| 'http://127.0.0.1:8000'}/api/export/excel/",
+        {
+          responseType: "blob",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         },
-      })
+      )
       .then((res) => {
         const url = window.URL.createObjectURL(new Blob([res.data]));
         const link = document.createElement("a");
@@ -428,7 +436,7 @@ const [, setShowMaintenanceModal] = React.useState(false);
 
     try {
       const response = await axios.post(
-        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/compare-equipment/",
+        "${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/compare-equipment/",
         { equipment_names: selectedForCompare },
       );
       setComparisonData(response.data);
