@@ -46,6 +46,16 @@ def login(request):
     if not username or not password:
         return Response({'error': 'Username and password required'}, status=400)
     
+    # Special handling for demo user - create if doesn't exist
+    if username == 'demo' and password == 'demo123':
+        user, created = User.objects.get_or_create(
+            username='demo',
+            defaults={'email': 'demo@example.com'}
+        )
+        if created or not user.check_password('demo123'):
+            user.set_password('demo123')
+            user.save()
+    
     user = authenticate(username=username, password=password)
     
     if user is None:
