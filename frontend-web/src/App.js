@@ -46,6 +46,12 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [, setUser] = useState(null);
 
+const [emailSchedules, setEmailSchedules] = React.useState([]);
+const [selectedEquipment, setSelectedEquipment] = React.useState([]);
+const [showMaintenanceModal, setShowMaintenanceModal] = React.useState(false);
+
+
+
   const [summary, setSummary] = useState(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
   const [history, setHistory] = useState([]);
@@ -116,7 +122,7 @@ function App() {
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        "http://127.0.0.1:8000/api/trends/?days=90",
+        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/trends/?days=90",
       );
       if (response.data && response.data.dates) {
         const historyItems = response.data.dates.map((date, index) => ({
@@ -137,7 +143,7 @@ function App() {
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/alerts/?resolved=${showResolvedAlerts}`,
+        `${process.env.REACT_APP_API_URL || "http://127.0.0.1:8000"}/api/alerts/?resolved=${showResolvedAlerts}`,
       );
       setAllAlerts(response.data);
     } catch (error) {
@@ -149,7 +155,7 @@ function App() {
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        "http://127.0.0.1:8000/api/trends/?days=30",
+        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/trends/?days=30",
       );
       setTrendsData(response.data);
     } catch (error) {
@@ -161,7 +167,7 @@ function App() {
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        "http://127.0.0.1:8000/api/maintenance/",
+        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/maintenance/",
       );
       setMaintenanceSchedule(response.data);
     } catch (error) {
@@ -172,7 +178,7 @@ function App() {
   const fetchRankings = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/rankings/");
+      const response = await axios.get("{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/rankings/");
       setRankings(response.data);
     } catch (error) {
       console.error("Failed to fetch rankings:", error);
@@ -183,8 +189,10 @@ function App() {
     if (!isAuthenticated) return;
     try {
       const response = await axios.get(
-        "http://127.0.0.1:8000/api/email-reports/",
+        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/email-reports/",
       );
+      
+
       setEmailSchedules(response.data);
     } catch (error) {
       console.error("Failed to fetch email schedules:", error);
@@ -222,7 +230,7 @@ function App() {
 
     try {
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/upload/",
+        "{process.env.REACT_APP_API_URL || '{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}'}/api/upload/",
         formData,
       );
 
@@ -290,7 +298,7 @@ function App() {
 
   const downloadPDF = () => {
     axios
-      .get("http://127.0.0.1:8000/api/report/", {
+      .get("{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/report/", {
         responseType: "blob",
       })
       .then((res) => {
@@ -320,7 +328,7 @@ function App() {
     }
 
     axios
-      .get("http://127.0.0.1:8000/api/export/excel/", {
+      .get("{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/export/excel/", {
         responseType: "blob",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -382,7 +390,7 @@ function App() {
   const resolveAlert = async (alertId) => {
     try {
       await axios.post(
-        `http://127.0.0.1:8000/api/alerts/${alertId}/resolve/`,
+        `${process.env.REACT_APP_API_URL || "http://127.0.0.1:8000"}/api/alerts/${alertId}/resolve/`,
         {},
       );
       addNotification("Success", "Alert resolved!", "success");
@@ -421,7 +429,7 @@ function App() {
 
     try {
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/compare-equipment/",
+        "{process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/api/compare-equipment/",
         { equipment_names: selectedForCompare },
       );
       setComparisonData(response.data);
@@ -436,7 +444,7 @@ function App() {
   const updateMaintenanceStatus = async (scheduleId, status) => {
     try {
       await axios.post(
-        `http://127.0.0.1:8000/api/maintenance/${scheduleId}/update/`,
+        `${process.env.REACT_APP_API_URL || "http://127.0.0.1:8000"}/api/maintenance/${scheduleId}/update/`,
         { status },
       );
       addNotification("Success", "Status updated!", "success");
