@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views, auth_views
+from . import cors_views
 
 urlpatterns = [
     # Auth endpoints
