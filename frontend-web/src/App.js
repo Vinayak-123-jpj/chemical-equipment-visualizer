@@ -46,10 +46,9 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [, setUser] = useState(null);
 
-const [emailSchedules, setEmailSchedules] = React.useState([]);
-const [selectedEquipment, setSelectedEquipment] = React.useState([]);
-const [showMaintenanceModal, setShowMaintenanceModal] = React.useState(false);
-
+const [, setEmailSchedules] = React.useState([]);
+const [, setSelectedEquipment] = React.useState([]);
+const [, setShowMaintenanceModal] = React.useState(false);
 
 
   const [summary, setSummary] = useState(null);
