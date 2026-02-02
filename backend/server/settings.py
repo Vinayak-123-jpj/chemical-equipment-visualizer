@@ -9,7 +9,13 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-h+6odg_p%2$id%^r%ji_&
 
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    "chemical-equipment-visualizer-8csk.onrender.com",
+    "chemical-equipment-visualizer-hahr.vercel.app",
+    "localhost",
+    "127.0.0.1",
+]
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
