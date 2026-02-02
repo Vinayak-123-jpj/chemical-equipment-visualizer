@@ -23,7 +23,7 @@ function Login({ onLogin }) {
         : { username, password, email };
 
       const response = await axios.post(
-        `https://chemical-equipment-visualizer-8csk.onrender.com/api/login/${endpoint}`,
+        `${process.env.REACT_APP_API_URL || "http://127.0.0.1:8000"}${endpoint}`,
         data,
       );
 
@@ -38,6 +38,20 @@ function Login({ onLogin }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Demo login function
+  const handleDemoLogin = () => {
+    setUsername("demo");
+    setPassword("demo123");
+    setIsLogin(true);
+    setTimeout(() => {
+      document
+        .querySelector("form")
+        .dispatchEvent(
+          new Event("submit", { cancelable: true, bubbles: true }),
+        );
+    }, 100);
   };
 
   return (
@@ -57,6 +71,46 @@ function Login({ onLogin }) {
           <h1>⚗️</h1>
           <h2>{isLogin ? "Welcome Back" : "Create Account"}</h2>
           <p>Chemical Equipment Intelligence Platform</p>
+        </div>
+
+        {/* DEMO CREDENTIALS BOX */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+            color: "white",
+            padding: "15px",
+            borderRadius: "12px",
+            marginBottom: "20px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: "bold",
+              marginBottom: "8px",
+              fontSize: "0.9rem",
+            }}
+          >
+            🎯 Demo Credentials
+          </div>
+          <div style={{ fontSize: "0.85rem", marginBottom: "10px" }}>
+            Username: <strong>demo</strong> | Password: <strong>demo123</strong>
+          </div>
+          <button
+            onClick={handleDemoLogin}
+            style={{
+              background: "white",
+              color: "#059669",
+              border: "none",
+              padding: "8px 20px",
+              borderRadius: "8px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              fontSize: "0.9rem",
+            }}
+          >
+            Quick Demo Login
+          </button>
         </div>
 
         {error && (
