@@ -39,6 +39,25 @@ def register(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+def refresh_token(request):
+    refresh = request.data.get('refresh')
+    if not refresh:
+        return Response({'error': 'Refresh token required'}, status=400)
+    
+    try:
+        refresh_token = RefreshToken(refresh)
+        return Response({
+            'access': str(refresh_token.access_token)
+        })
+    except Exception as e:
+        return Response({'error': 'Invalid refresh token'}, status=401)
+
+
+
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def login(request):
     username = request.data.get('username')
     password = request.data.get('password')

@@ -31,6 +31,9 @@ urlpatterns = [
     # NEW: Excel export
     path('export/excel/', views.export_to_excel),
     
+   path('auth/refresh/', auth_views.refresh_token),
+
+
     # NEW: Email report endpoints
     path('email-reports/', views.get_email_schedules),
     path('email-reports/schedule/', views.schedule_email_report),
