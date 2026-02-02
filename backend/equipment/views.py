@@ -19,6 +19,9 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.chart import BarChart, Reference, LineChart
 from sklearn.linear_model import LinearRegression
 
+# SIMPLIFIED UPLOAD FIX
+# Replace the upload_csv function in backend/equipment/views.py with this:
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_csv(request):
@@ -28,8 +31,16 @@ def upload_csv(request):
         return Response({"error": "No file uploaded"}, status=400)
 
     try:
+        # Read CSV
         df = pd.read_csv(file)
+        
+        # Validate required columns
+        required_columns = ['Equipment Name', 'Type', 'Flowrate', 'Pressure', 'Temperature']
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            return Response({"error": f"Missing columns: {', '.join(missing)}"}, status=400)
 
+        # Calculate summary
         summary = {
             "total_records": len(df),
             "avg_flowrate": float(df["Flowrate"].mean()),
@@ -38,7 +49,8 @@ def upload_csv(request):
             "type_distribution": df["Type"].value_counts().to_dict()
         }
 
-        # Save to database
+        # Save to database with timezone-aware datetime
+        from django.utils import timezone
         dataset = Dataset.objects.create(
             total_records=summary["total_records"],
             avg_flowrate=summary["avg_flowrate"],
@@ -48,27 +60,74 @@ def upload_csv(request):
             file_name=file.name
         )
 
-        # Save individual parameters
+        # Save individual equipment parameters with health scores
         for _, row in df.iterrows():
+            flowrate = float(row['Flowrate'])
+            pressure = float(row['Pressure'])
+            temperature = float(row['Temperature'])
+            
+            # Simple health score calculation
+            flowrate_score = 100 if 100 <= flowrate <= 130 else 80 if 80 <= flowrate <= 150 else 60
+            pressure_score = 100 if 4 <= pressure <= 8 else 80 if 3 <= pressure <= 9 else 60
+            temp_score = 100 if 100 <= temperature <= 135 else 80 if 90 <= temperature <= 150 else 60
+            health_score = (flowrate_score + pressure_score + temp_score) / 3
+            
             EquipmentParameter.objects.create(
                 dataset=dataset,
                 equipment_name=row['Equipment Name'],
                 equipment_type=row['Type'],
-                flowrate=float(row['Flowrate']),
-                pressure=float(row['Pressure']),
-                temperature=float(row['Temperature']),
+                flowrate=flowrate,
+                pressure=pressure,
+                temperature=temperature,
+                health_score=health_score,
+                efficiency_index=health_score  # Use same for simplicity
+            )
+            
+            # Generate alerts for critical values
+            if flowrate > 150 or flowrate < 50:
+                EquipmentAlert.objects.create(
+                    equipment_name=row['Equipment Name'],
+                    alert_type='CRITICAL',
+                    parameter='Flowrate',
+                    value=flowrate,
+                    threshold=150 if flowrate > 150 else 50,
+                    message=f"Flowrate {'critically high' if flowrate > 150 else 'critically low'}: {flowrate:.2f} L/min",
+                    recommendation="Immediate inspection required"
+                )
+            
+            if pressure > 8.5 or pressure < 3.5:
+                EquipmentAlert.objects.create(
+                    equipment_name=row['Equipment Name'],
+                    alert_type='CRITICAL',
+                    parameter='Pressure',
+                    value=pressure,
+                    threshold=8.5 if pressure > 8.5 else 3.5,
+                    message=f"Pressure {'critically high' if pressure > 8.5 else 'critically low'}: {pressure:.2f} bar",
+                    recommendation="Check pressure regulators immediately"
+                )
+
+        # Generate rankings
+        EquipmentRanking.objects.all().delete()
+        params = EquipmentParameter.objects.filter(dataset=dataset).order_by('-health_score')
+        for rank, param in enumerate(params, start=1):
+            EquipmentRanking.objects.create(
+                equipment_name=param.equipment_name,
+                equipment_type=param.equipment_type,
+                overall_score=param.health_score,
+                efficiency_rank=rank,
+                reliability_rank=rank,
+                performance_rank=rank
             )
 
         return Response(summary)
         
     except Exception as e:
         import traceback
-        print(f"Upload error: {str(e)}")
-        print(traceback.format_exc())
+        error_details = traceback.format_exc()
+        print(f"Upload error: {error_details}")
         return Response({
             "error": f"Failed to process file: {str(e)}"
         }, status=500)
-
 
 def calculate_health_scores(df):
     scores = []
