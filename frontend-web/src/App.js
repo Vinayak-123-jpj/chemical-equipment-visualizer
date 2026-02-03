@@ -33,14 +33,12 @@ ChartJS.register(
   Filler,
 );
 
-// API URL Configuration
 const API_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:8000";
 
 function App() {
   const [summary, setSummary] = useState(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
   const [history, setHistory] = useState([]);
-  const [, setAlerts] = useState([]);
   const [fileName, setFileName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [selectedChart, setSelectedChart] = useState("bar");
@@ -49,7 +47,6 @@ function App() {
   const [sortBy, setSortBy] = useState("name");
   const [rawData, setRawData] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
-
   const [showAlerts, setShowAlerts] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [allAlerts, setAllAlerts] = useState([]);
@@ -59,7 +56,6 @@ function App() {
   const [comparisonData, setComparisonData] = useState(null);
   const [trendsData, setTrendsData] = useState(null);
   const [maintenanceSchedule, setMaintenanceSchedule] = useState([]);
-
   const [theme, setTheme] = useState("light");
   const [rankings, setRankings] = useState([]);
   const [fullscreenChart, setFullscreenChart] = useState(null);
@@ -70,7 +66,6 @@ function App() {
     document.documentElement.setAttribute("data-theme", savedTheme);
     document.body.className = savedTheme === "dark" ? "dark-mode" : "";
 
-    // Auto-fetch initial data
     fetchHistory();
     fetchAlerts();
     fetchTrends();
@@ -161,7 +156,6 @@ function App() {
 
       setSummary(response.data);
       setAdvancedAnalytics(response.data.advanced_analytics || null);
-      setAlerts(response.data.alerts || []);
 
       addNotification(
         "Success",
@@ -695,7 +689,6 @@ function App() {
 
   return (
     <div className={`app-container ${theme === "dark" ? "dark-mode" : ""}`}>
-      {/* Fullscreen Chart Modal */}
       <AnimatePresence>
         {fullscreenChart && (
           <motion.div
@@ -753,7 +746,6 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Notifications */}
       <div className="notifications-container">
         <AnimatePresence>
           {notifications.map((notif) => (
@@ -781,7 +773,6 @@ function App() {
         </AnimatePresence>
       </div>
 
-      {/* Header */}
       <header className="app-header">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -815,7 +806,6 @@ function App() {
         </div>
       </header>
 
-      {/* Alerts Panel */}
       <AnimatePresence>
         {showAlerts && allAlerts.length > 0 && (
           <motion.div
@@ -878,7 +868,6 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Upload Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -910,7 +899,6 @@ function App() {
         </div>
       </motion.div>
 
-      {/* Loading State */}
       {isUploading && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -922,10 +910,8 @@ function App() {
         </motion.div>
       )}
 
-      {/* Main Content */}
       {summary && !isUploading && (
         <>
-          {/* Navigation Tabs */}
           <div className="tabs-container">
             {[
               "dashboard",
@@ -952,7 +938,6 @@ function App() {
             ))}
           </div>
 
-          {/* Dashboard Tab */}
           {activeTab === "dashboard" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -974,7 +959,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* Summary Stats */}
                 <div className="summary-grid">
                   <div className="stat-item stat-primary">
                     <div className="stat-icon">📝</div>
@@ -1016,7 +1000,6 @@ function App() {
                 </div>
               </div>
 
-              {/* History Table */}
               {showHistory && (
                 <AnimatePresence>
                   <motion.div
@@ -1062,7 +1045,6 @@ function App() {
                 </AnimatePresence>
               )}
 
-              {/* Equipment Distribution Chart */}
               <div className="card">
                 <div className="card-header">
                   <h3>📈 Equipment Distribution</h3>
@@ -1115,7 +1097,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* Analytics Tab */}
           {activeTab === "analytics" && advancedAnalytics && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="analytics-grid">
@@ -1184,7 +1165,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* Equipment Tab */}
           {activeTab === "equipment" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1234,7 +1214,6 @@ function App() {
                   </select>
                 </div>
 
-                {/* Comparison Results */}
                 {comparisonData && (
                   <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -1420,7 +1399,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* Rankings Tab */}
           {activeTab === "rankings" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1590,7 +1568,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* Trends Tab */}
           {activeTab === "trends" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1624,7 +1601,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* Maintenance Tab */}
           {activeTab === "maintenance" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1695,7 +1671,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* Reports Tab */}
           {activeTab === "reports" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="reports-grid">
@@ -1723,7 +1698,6 @@ function App() {
         </>
       )}
 
-      {/* Empty State */}
       {!summary && !isUploading && (
         <motion.div
           initial={{ opacity: 0 }}
