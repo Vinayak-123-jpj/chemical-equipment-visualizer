@@ -334,6 +334,25 @@ A sample CSV file is provided at `sample_data/sample_equipment_data.csv` for qui
 
 The file contains **15 rows** across **6 equipment types** and is ideal for demonstrating all features including alerts (Compressor-1 triggers a pressure warning) and distribution charts.
 
+---
+
+## 📸 Screenshots
+
+### Web App — Dashboard
+![Web Dashboard](https://i.imgur.com/placeholder1.png)
+*Upload CSV → instant summary cards, animated distribution charts (Bar / Line / Doughnut), and export buttons.*
+
+### Web App — Equipment Cards with Health Scores
+![Equipment Cards](https://i.imgur.com/placeholder2.png)
+*Each card shows an animated SVG health gauge, status badge, and key metrics. Compare mode allows side-by-side analysis.*
+
+### Web App — Rankings Leaderboard
+![Rankings](https://i.imgur.com/placeholder3.png)
+*Top 3 equipment on a gold/silver/bronze podium with animated score rings; full table below.*
+
+### Desktop App — PyQt5 Dashboard
+![Desktop Dashboard](https://i.imgur.com/placeholder4.png)
+*Native PyQt5 interface with stat cards, Matplotlib charts, searchable/sortable equipment table, and CSV export.*
 
 ---
 
@@ -386,6 +405,12 @@ The file contains **15 rows** across **6 equipment types** and is ideal for demo
 | Fullscreen Chart Modal | Any chart can be expanded to a fullscreen overlay |
 | Responsive Layout | Mobile-first CSS with media queries down to 480px |
 | Email Report Scheduling | API endpoints for configuring automated report schedules |
+
+---
+
+## 📝 License
+
+This project is licensed under the **MIT License**.
 
 ---
 
