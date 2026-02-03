@@ -16,7 +16,6 @@ import {
   Filler,
 } from "chart.js";
 import { Bar, Line, Doughnut, Radar } from "react-chartjs-2";
-import Login from "./Login";
 import "./styles/App.css";
 import "./styles/NewFeatures.css";
 
@@ -34,94 +33,10 @@ ChartJS.register(
   Filler,
 );
 
-// Request interceptor - adds auth token to all requests
-
-// REPLACE THE ENTIRE INTERCEPTOR SECTION (lines ~48-65) WITH THIS:
-
-let isRefreshing = false;
-let failedQueue = [];
-
-axios.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-axios.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        }).then(token => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return axios(originalRequest);
-        });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      const refreshToken = localStorage.getItem("refresh");
-      
-      if (!refreshToken) {
-        localStorage.clear();
-        window.location.reload();
-        return Promise.reject(error);
-      }
-
-      try {
-        const response = await axios.post(`${API_URL}/api/auth/refresh/`, {
-          refresh: refreshToken
-        });
-
-        const newToken = response.data.access;
-        localStorage.setItem("token", newToken);
-        
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        
-        failedQueue.forEach(prom => prom.resolve(newToken));
-        failedQueue = [];
-        
-        return axios(originalRequest);
-      } catch (refreshError) {
-        failedQueue.forEach(prom => prom.reject(refreshError));
-        failedQueue = [];
-        
-        localStorage.clear();
-        window.location.reload();
-        
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
-// Response interceptor - handles auth errors globally
-
-
 // API URL Configuration
 const API_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:8000";
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [, setUser] = useState(null);
-
-  const [, setEmailSchedules] = React.useState([]);
-  const [, setSelectedEquipment] = React.useState([]);
-  const [, setShowMaintenanceModal] = React.useState(false);
-
   const [summary, setSummary] = useState(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
   const [history, setHistory] = useState([]);
@@ -150,34 +65,18 @@ function App() {
   const [fullscreenChart, setFullscreenChart] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
     const savedTheme = localStorage.getItem("theme") || "light";
-
-    if (token && savedUser) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(savedUser));
-    }
-
     setTheme(savedTheme);
     document.documentElement.setAttribute("data-theme", savedTheme);
     document.body.className = savedTheme === "dark" ? "dark-mode" : "";
+
+    // Auto-fetch initial data
+    fetchHistory();
+    fetchAlerts();
+    fetchTrends();
+    fetchMaintenance();
+    fetchRankings();
   }, []);
-
-  const handleLogin = (userData, token) => {
-    setIsAuthenticated(true);
-    setUser(userData);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("refresh");
-    localStorage.removeItem("user");
-    setIsAuthenticated(false);
-    setUser(null);
-    setSummary(null);
-    setRawData([]);
-  };
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -188,7 +87,6 @@ function App() {
   };
 
   const fetchHistory = useCallback(async () => {
-    if (!isAuthenticated) return;
     try {
       const response = await axios.get(`${API_URL}/api/trends/?days=90`);
       if (response.data && response.data.dates) {
@@ -204,10 +102,9 @@ function App() {
       console.error("Failed to fetch history:", error);
       setHistory([]);
     }
-  }, [isAuthenticated]);
+  }, []);
 
   const fetchAlerts = useCallback(async () => {
-    if (!isAuthenticated) return;
     try {
       const response = await axios.get(
         `${API_URL}/api/alerts/?resolved=${showResolvedAlerts}`,
@@ -216,67 +113,34 @@ function App() {
     } catch (error) {
       console.error("Failed to fetch alerts:", error);
     }
-  }, [isAuthenticated, showResolvedAlerts]);
+  }, [showResolvedAlerts]);
 
   const fetchTrends = useCallback(async () => {
-    if (!isAuthenticated) return;
     try {
       const response = await axios.get(`${API_URL}/api/trends/?days=30`);
       setTrendsData(response.data);
     } catch (error) {
       console.error("Failed to fetch trends:", error);
     }
-  }, [isAuthenticated]);
+  }, []);
 
   const fetchMaintenance = useCallback(async () => {
-    if (!isAuthenticated) return;
     try {
       const response = await axios.get(`${API_URL}/api/maintenance/`);
       setMaintenanceSchedule(response.data);
     } catch (error) {
       console.error("Failed to fetch maintenance:", error);
     }
-  }, [isAuthenticated]);
+  }, []);
 
   const fetchRankings = useCallback(async () => {
-    if (!isAuthenticated) return;
     try {
       const response = await axios.get(`${API_URL}/api/rankings/`);
       setRankings(response.data);
     } catch (error) {
       console.error("Failed to fetch rankings:", error);
     }
-  }, [isAuthenticated]);
-
-  const fetchEmailSchedules = useCallback(async () => {
-    if (!isAuthenticated) return;
-    try {
-      const response = await axios.get(`${API_URL}/api/email-reports/`);
-
-      setEmailSchedules(response.data);
-    } catch (error) {
-      console.error("Failed to fetch email schedules:", error);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchHistory();
-      fetchAlerts();
-      fetchTrends();
-      fetchMaintenance();
-      fetchRankings();
-      fetchEmailSchedules();
-    }
-  }, [
-    isAuthenticated,
-    fetchHistory,
-    fetchAlerts,
-    fetchTrends,
-    fetchMaintenance,
-    fetchRankings,
-    fetchEmailSchedules,
-  ]);
+  }, []);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -289,19 +153,11 @@ function App() {
     formData.append("file", file);
 
     try {
-      console.log("Uploading to:", `${API_URL}/api/upload/`);
-      console.log(
-        "Token:",
-        localStorage.getItem("token") ? "Present" : "Missing",
-      );
-
       const response = await axios.post(`${API_URL}/api/upload/`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-
-      console.log("Upload successful:", response.data);
 
       setSummary(response.data);
       setAdvancedAnalytics(response.data.advanced_analytics || null);
@@ -340,33 +196,11 @@ function App() {
       fetchRankings();
     } catch (error) {
       console.error("Upload failed:", error);
-      console.error("Error details:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers,
-      });
-
-      let errorMessage = "Failed to upload file. Please try again.";
-
-      if (error.response) {
-        if (error.response.status === 405) {
-          errorMessage =
-            "Server configuration error (405). Please check backend CORS settings.";
-        } else if (error.response.status === 401) {
-          errorMessage = "Authentication required. Please login first.";
-        } else if (error.response.status === 403) {
-          errorMessage = "Permission denied (403). Try logging in again.";
-        } else if (error.response.status === 400) {
-          errorMessage = error.response.data?.error || "Invalid file format.";
-        } else if (error.response.data?.error) {
-          errorMessage = error.response.data.error;
-        }
-      } else if (error.request) {
-        errorMessage = `Cannot reach server at ${API_URL}. Please check if backend is running.`;
-      }
-
-      addNotification("Error", errorMessage, "error");
+      addNotification(
+        "Error",
+        "Failed to upload file. Please try again.",
+        "error",
+      );
     } finally {
       setIsUploading(false);
     }
@@ -413,17 +247,9 @@ function App() {
   };
 
   const downloadExcel = () => {
-    if (!isAuthenticated) {
-      addNotification("Error", "Please login first", "error");
-      return;
-    }
-
     axios
       .get(`${API_URL}/api/export/excel/`, {
         responseType: "blob",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
       })
       .then((res) => {
         const url = window.URL.createObjectURL(new Blob([res.data]));
@@ -442,12 +268,7 @@ function App() {
       })
       .catch((error) => {
         console.error("Excel download failed:", error);
-        addNotification(
-          "Error",
-          "Failed to generate Excel: " +
-            (error.response?.data?.error || error.message),
-          "error",
-        );
+        addNotification("Error", "Failed to generate Excel.", "error");
       });
   };
 
@@ -872,10 +693,6 @@ function App() {
     return Math.round((flowrateScore + pressureScore + tempScore) / 3);
   };
 
-  if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
-  }
-
   return (
     <div className={`app-container ${theme === "dark" ? "dark-mode" : ""}`}>
       {/* Fullscreen Chart Modal */}
@@ -994,13 +811,6 @@ function App() {
             {allAlerts.length > 0 && (
               <span className="alert-badge">{allAlerts.length}</span>
             )}
-          </button>
-          <button
-            className="theme-toggle"
-            onClick={handleLogout}
-            title="Logout"
-          >
-            🚪
           </button>
         </div>
       </header>
@@ -1515,9 +1325,6 @@ function App() {
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className={`equipment-card status-${status} ${isSelected ? "selected" : ""}`}
-                        onClick={() =>
-                          !compareMode && setSelectedEquipment(item)
-                        }
                       >
                         {compareMode && (
                           <div className="compare-checkbox">
@@ -1823,12 +1630,6 @@ function App() {
               <div className="card">
                 <div className="card-header">
                   <h3>🛠️ Maintenance Schedule</h3>
-                  <button
-                    className="btn btn-success"
-                    onClick={() => setShowMaintenanceModal(true)}
-                  >
-                    + Schedule Maintenance
-                  </button>
                 </div>
 
                 {maintenanceSchedule.length > 0 ? (
