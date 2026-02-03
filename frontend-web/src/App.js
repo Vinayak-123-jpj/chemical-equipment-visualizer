@@ -81,6 +81,8 @@ function App() {
     document.body.className = newTheme === "dark" ? "dark-mode" : "";
   };
 
+  // ─── ALL FETCH FUNCTIONS — NO AUTH HEADERS ────────────────────────────────
+
   const fetchHistory = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/api/trends/?days=90`);
@@ -137,6 +139,8 @@ function App() {
     }
   }, []);
 
+  // ─── UPLOAD ────────────────────────────────────────────────────────────────
+
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -149,20 +153,18 @@ function App() {
 
     try {
       const response = await axios.post(`${API_URL}/api/upload/`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       setSummary(response.data);
       setAdvancedAnalytics(response.data.advanced_analytics || null);
-
       addNotification(
         "Success",
         "Data uploaded and analyzed successfully!",
         "success",
       );
 
+      // Parse CSV locally for the equipment grid
       const reader = new FileReader();
       reader.onload = (event) => {
         const text = event.target.result;
@@ -200,6 +202,8 @@ function App() {
     }
   };
 
+  // ─── NOTIFICATIONS ─────────────────────────────────────────────────────────
+
   const addNotification = (title, message, type = "info") => {
     const notification = {
       id: Date.now(),
@@ -209,17 +213,16 @@ function App() {
       time: new Date().toLocaleTimeString(),
     };
     setNotifications((prev) => [notification, ...prev].slice(0, 5));
-
     setTimeout(() => {
       setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
     }, 5000);
   };
 
+  // ─── REPORTS / EXPORTS ─────────────────────────────────────────────────────
+
   const downloadPDF = () => {
     axios
-      .get(`${API_URL}/api/report/`, {
-        responseType: "blob",
-      })
+      .get(`${API_URL}/api/report/`, { responseType: "blob" })
       .then((res) => {
         const url = window.URL.createObjectURL(new Blob([res.data]));
         const link = document.createElement("a");
@@ -234,17 +237,14 @@ function App() {
           "success",
         );
       })
-      .catch((error) => {
-        console.error("PDF download failed:", error);
+      .catch(() => {
         addNotification("Error", "Failed to generate PDF.", "error");
       });
   };
 
   const downloadExcel = () => {
     axios
-      .get(`${API_URL}/api/export/excel/`, {
-        responseType: "blob",
-      })
+      .get(`${API_URL}/api/export/excel/`, { responseType: "blob" })
       .then((res) => {
         const url = window.URL.createObjectURL(new Blob([res.data]));
         const link = document.createElement("a");
@@ -260,15 +260,13 @@ function App() {
           "success",
         );
       })
-      .catch((error) => {
-        console.error("Excel download failed:", error);
+      .catch(() => {
         addNotification("Error", "Failed to generate Excel.", "error");
       });
   };
 
   const exportToCSV = () => {
     if (!summary) return;
-
     const csvContent = [
       ["Metric", "Value"],
       ["Total Records", summary.total_records],
@@ -293,6 +291,8 @@ function App() {
     addNotification("Success", "CSV exported successfully!", "success");
   };
 
+  // ─── ALERTS ────────────────────────────────────────────────────────────────
+
   const resolveAlert = async (alertId) => {
     try {
       await axios.post(`${API_URL}/api/alerts/${alertId}/resolve/`, {});
@@ -302,6 +302,8 @@ function App() {
       addNotification("Error", "Failed to resolve alert", "error");
     }
   };
+
+  // ─── COMPARE ───────────────────────────────────────────────────────────────
 
   const toggleCompareSelection = (equipmentName) => {
     setSelectedForCompare((prev) => {
@@ -329,7 +331,6 @@ function App() {
       );
       return;
     }
-
     try {
       const response = await axios.post(`${API_URL}/api/compare-equipment/`, {
         equipment_names: selectedForCompare,
@@ -340,6 +341,8 @@ function App() {
       addNotification("Error", "Failed to compare equipment", "error");
     }
   };
+
+  // ─── MAINTENANCE ───────────────────────────────────────────────────────────
 
   const updateMaintenanceStatus = async (scheduleId, status) => {
     try {
@@ -352,6 +355,8 @@ function App() {
       addNotification("Error", "Failed to update status", "error");
     }
   };
+
+  // ─── HELPERS ───────────────────────────────────────────────────────────────
 
   const getMedalEmoji = (rank) => {
     if (rank === 1) return "🥇";
@@ -367,9 +372,10 @@ function App() {
     return "#fa709a";
   };
 
+  // ─── CHART DATA ────────────────────────────────────────────────────────────
+
   const getChartData = () => {
     if (!summary) return null;
-
     const labels = Object.keys(summary.type_distribution);
     const data = Object.values(summary.type_distribution);
 
@@ -458,7 +464,6 @@ function App() {
 
   const getRadarData = () => {
     if (!advancedAnalytics) return null;
-
     return {
       labels: ["Flowrate", "Pressure", "Temperature", "Efficiency", "Health"],
       datasets: [
@@ -490,7 +495,6 @@ function App() {
 
   const getTrendData = () => {
     if (!trendsData || trendsData.dates.length === 0) return null;
-
     return {
       labels: trendsData.dates,
       datasets: [
@@ -527,9 +531,7 @@ function App() {
 
   const getComparisonData = () => {
     if (!comparisonData) return null;
-
     const labels = comparisonData.map((eq) => eq.name);
-
     return {
       labels,
       datasets: [
@@ -572,25 +574,15 @@ function App() {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: true,
-    interaction: {
-      mode: "index",
-      intersect: false,
-    },
-    animation: {
-      duration: 1000,
-      easing: "easeInOutCubic",
-    },
+    interaction: { mode: "index", intersect: false },
+    animation: { duration: 1000, easing: "easeInOutCubic" },
     plugins: {
       legend: {
         display: true,
         position: "bottom",
         labels: {
           padding: 25,
-          font: {
-            size: 14,
-            weight: "bold",
-            family: "'Inter', sans-serif",
-          },
+          font: { size: 14, weight: "bold", family: "'Inter', sans-serif" },
           usePointStyle: true,
           pointStyle: "rectRounded",
           color: "#1e293b",
@@ -635,6 +627,8 @@ function App() {
         : {},
   };
 
+  // ─── FILTERING / SORTING ───────────────────────────────────────────────────
+
   const filteredData = rawData.filter(
     (item) =>
       item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -665,30 +659,32 @@ function App() {
   };
 
   const getHealthScore = (flowrate, pressure, temperature) => {
-    const flowrateScore =
+    const f =
       flowrate >= 100 && flowrate <= 130
         ? 100
         : flowrate >= 80 && flowrate <= 150
           ? 80
           : 60;
-    const pressureScore =
+    const p =
       pressure >= 4 && pressure <= 8
         ? 100
         : pressure >= 3 && pressure <= 9
           ? 80
           : 60;
-    const tempScore =
+    const t =
       temperature >= 100 && temperature <= 135
         ? 100
         : temperature >= 90 && temperature <= 150
           ? 80
           : 60;
-
-    return Math.round((flowrateScore + pressureScore + tempScore) / 3);
+    return Math.round((f + p + t) / 3);
   };
+
+  // ─── RENDER ────────────────────────────────────────────────────────────────
 
   return (
     <div className={`app-container ${theme === "dark" ? "dark-mode" : ""}`}>
+      {/* ── Fullscreen chart modal ── */}
       <AnimatePresence>
         {fullscreenChart && (
           <motion.div
@@ -746,6 +742,7 @@ function App() {
         )}
       </AnimatePresence>
 
+      {/* ── Toast notifications ── */}
       <div className="notifications-container">
         <AnimatePresence>
           {notifications.map((notif) => (
@@ -773,6 +770,7 @@ function App() {
         </AnimatePresence>
       </div>
 
+      {/* ── Header ── */}
       <header className="app-header">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -784,7 +782,6 @@ function App() {
             Advanced Analytics · Predictive Insights · Real-time Monitoring
           </p>
         </motion.div>
-
         <div className="header-controls">
           <button
             className="theme-toggle"
@@ -806,6 +803,7 @@ function App() {
         </div>
       </header>
 
+      {/* ── Alerts panel ── */}
       <AnimatePresence>
         {showAlerts && allAlerts.length > 0 && (
           <motion.div
@@ -868,6 +866,7 @@ function App() {
         )}
       </AnimatePresence>
 
+      {/* ── Upload section ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -899,6 +898,7 @@ function App() {
         </div>
       </motion.div>
 
+      {/* ── Loading spinner ── */}
       {isUploading && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -906,12 +906,14 @@ function App() {
           className="card"
         >
           <div className="loading-spinner"></div>
-          <div className="loading">Analyzing your data with AI...</div>
+          <div className="loading">Analyzing your data...</div>
         </motion.div>
       )}
 
+      {/* ── Main content (shown after first upload) ── */}
       {summary && !isUploading && (
         <>
+          {/* Tab bar */}
           <div className="tabs-container">
             {[
               "dashboard",
@@ -938,6 +940,7 @@ function App() {
             ))}
           </div>
 
+          {/* ── DASHBOARD ── */}
           {activeTab === "dashboard" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -958,7 +961,6 @@ function App() {
                     </button>
                   </div>
                 </div>
-
                 <div className="summary-grid">
                   <div className="stat-item stat-primary">
                     <div className="stat-icon">📝</div>
@@ -1000,6 +1002,7 @@ function App() {
                 </div>
               </div>
 
+              {/* History table */}
               {showHistory && (
                 <AnimatePresence>
                   <motion.div
@@ -1045,6 +1048,7 @@ function App() {
                 </AnimatePresence>
               )}
 
+              {/* Distribution chart */}
               <div className="card">
                 <div className="card-header">
                   <h3>📈 Equipment Distribution</h3>
@@ -1097,6 +1101,7 @@ function App() {
             </motion.div>
           )}
 
+          {/* ── ANALYTICS ── */}
           {activeTab === "analytics" && advancedAnalytics && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="analytics-grid">
@@ -1122,7 +1127,6 @@ function App() {
                     )}
                   </div>
                 </div>
-
                 <div className="card">
                   <h3>💚 Equipment Health Scores</h3>
                   <div className="health-scores">
@@ -1165,6 +1169,7 @@ function App() {
             </motion.div>
           )}
 
+          {/* ── EQUIPMENT ── */}
           {activeTab === "equipment" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1192,7 +1197,6 @@ function App() {
                     )}
                   </div>
                 </div>
-
                 <div className="filter-controls">
                   <input
                     type="text"
@@ -1214,6 +1218,7 @@ function App() {
                   </select>
                 </div>
 
+                {/* Comparison results */}
                 {comparisonData && (
                   <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -1284,6 +1289,7 @@ function App() {
                   </motion.div>
                 )}
 
+                {/* Equipment cards */}
                 <div className="equipment-grid">
                   {sortedData.map((item, index) => {
                     const status = getHealthStatus(
@@ -1297,7 +1303,6 @@ function App() {
                       item.temperature,
                     );
                     const isSelected = selectedForCompare.includes(item.name);
-
                     return (
                       <motion.div
                         key={index}
@@ -1324,12 +1329,11 @@ function App() {
                               ? "✓"
                               : status === "high"
                                 ? "⚠"
-                                : "⬇"}
+                                : "⬇"}{" "}
                             {status.toUpperCase()}
                           </span>
                         </div>
                         <div className="equipment-type">{item.type}</div>
-
                         <div className="health-circle-container">
                           <svg className="health-circle" viewBox="0 0 100 100">
                             <circle
@@ -1370,7 +1374,6 @@ function App() {
                           </svg>
                           <div className="health-label">Health Score</div>
                         </div>
-
                         <div className="equipment-metrics">
                           <div className="metric">
                             <span className="metric-label">Flowrate</span>
@@ -1399,6 +1402,7 @@ function App() {
             </motion.div>
           )}
 
+          {/* ── RANKINGS ── */}
           {activeTab === "rankings" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1414,7 +1418,6 @@ function App() {
                     Equipment ranked by overall performance score
                   </p>
                 </div>
-
                 {rankings.length > 0 ? (
                   <>
                     <div className="rankings-leaderboard">
@@ -1501,7 +1504,6 @@ function App() {
                         </motion.div>
                       ))}
                     </div>
-
                     {rankings.length > 3 && (
                       <div className="rankings-table">
                         <h4
@@ -1568,6 +1570,7 @@ function App() {
             </motion.div>
           )}
 
+          {/* ── TRENDS ── */}
           {activeTab === "trends" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1601,13 +1604,13 @@ function App() {
             </motion.div>
           )}
 
+          {/* ── MAINTENANCE ── */}
           {activeTab === "maintenance" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
                 <div className="card-header">
                   <h3>🛠️ Maintenance Schedule</h3>
                 </div>
-
                 {maintenanceSchedule.length > 0 ? (
                   <div className="maintenance-grid">
                     {maintenanceSchedule.map((schedule) => (
@@ -1671,6 +1674,7 @@ function App() {
             </motion.div>
           )}
 
+          {/* ── REPORTS ── */}
           {activeTab === "reports" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="reports-grid">
@@ -1698,6 +1702,7 @@ function App() {
         </>
       )}
 
+      {/* ── Empty / welcome state (before first upload) ── */}
       {!summary && !isUploading && (
         <motion.div
           initial={{ opacity: 0 }}

@@ -23,7 +23,7 @@ from sklearn.linear_model import LinearRegression
 # Replace the upload_csv function in backend/equipment/views.py with this:
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+
 def upload_csv(request):
     file = request.FILES.get('file')
 
@@ -365,7 +365,7 @@ def calculate_equipment_rankings(df):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+
 def get_trends(request):
     days = int(request.GET.get('days', 30))
     datasets = Dataset.objects.filter(
@@ -389,7 +389,7 @@ def get_trends(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+
 def generate_pdf(request):
     dataset = Dataset.objects.order_by('-uploaded_at').first()
 
@@ -467,12 +467,12 @@ from django.http import HttpResponse
 from io import BytesIO
 from datetime import datetime
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+
 from rest_framework.response import Response
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+
 def export_to_excel(request):
     """Export comprehensive data to Excel with multiple sheets and charts"""
     try:
@@ -754,7 +754,7 @@ def export_to_excel(request):
         }, status=500)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+
 def get_alerts(request):
     resolved = request.GET.get('resolved', 'false').lower() == 'true'
     alerts = EquipmentAlert.objects.filter(resolved=resolved).order_by('-created_at')[:50]
@@ -781,7 +781,7 @@ def get_alerts(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+
 def resolve_alert(request, alert_id):
     try:
         alert = EquipmentAlert.objects.get(id=alert_id)
@@ -795,7 +795,7 @@ def resolve_alert(request, alert_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+
 def compare_equipment(request):
     equipment_names = request.data.get('equipment_names', [])
     
@@ -827,7 +827,7 @@ def compare_equipment(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+
 def get_maintenance_schedule(request):
     schedules = MaintenanceSchedule.objects.filter(
         status__in=['SCHEDULED', 'IN_PROGRESS']
@@ -851,7 +851,7 @@ def get_maintenance_schedule(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+
 def create_maintenance_schedule(request):
     schedule = MaintenanceSchedule.objects.create(
         equipment_name=request.data.get('equipment_name'),
@@ -868,7 +868,7 @@ def create_maintenance_schedule(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+
 def update_maintenance_status(request, schedule_id):
     try:
         schedule = MaintenanceSchedule.objects.get(id=schedule_id)
@@ -885,7 +885,7 @@ def update_maintenance_status(request, schedule_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+
 def get_equipment_rankings(request):
     """Get equipment performance rankings"""
     rankings = EquipmentRanking.objects.all()[:20]
@@ -906,7 +906,7 @@ def get_equipment_rankings(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+
 def schedule_email_report(request):
     """Schedule automated email reports"""
     EmailReportSchedule.objects.create(
@@ -923,7 +923,7 @@ def schedule_email_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+
 def get_email_schedules(request):
     """Get user's email schedules"""
     schedules = EmailReportSchedule.objects.filter(user=request.user)
@@ -946,7 +946,7 @@ def get_email_schedules(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+
 def update_email_schedule(request, schedule_id):
     """Update email schedule"""
     try:
@@ -962,7 +962,7 @@ def update_email_schedule(request, schedule_id):
 
 
 @api_view(['DELETE'])
-@permission_classes([IsAuthenticated])
+
 def delete_email_schedule(request, schedule_id):
     """Delete email schedule"""
     try:
