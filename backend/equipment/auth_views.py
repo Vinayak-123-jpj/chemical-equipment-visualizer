@@ -38,22 +38,35 @@ def register(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([AllowAny])  # IMPORTANT: Must be AllowAny!
 def refresh_token(request):
-    refresh = request.data.get('refresh')
-    if not refresh:
-        return Response({'error': 'Refresh token required'}, status=400)
-    
+    """Refresh access token using refresh token"""
     try:
-        refresh_token = RefreshToken(refresh)
+        refresh_token_str = request.data.get('refresh')
+        
+        if not refresh_token_str:
+            return Response({
+                'error': 'Refresh token required',
+                'detail': 'No refresh token provided in request body'
+            }, status=400)
+        
+        # Create RefreshToken object from string
+        refresh = RefreshToken(refresh_token_str)
+        
+        # Generate new access token
+        access_token = str(refresh.access_token)
+        
         return Response({
-            'access': str(refresh_token.access_token)
-        })
+            'access': access_token,
+            'refresh': str(refresh)  # Optionally return new refresh token
+        }, status=200)
+        
     except Exception as e:
-        return Response({'error': 'Invalid refresh token'}, status=401)
-
-
-
+        # Token is invalid or expired
+        return Response({
+            'error': 'Invalid or expired refresh token',
+            'detail': str(e)
+        }, status=401)
 
 
 @api_view(['POST'])
