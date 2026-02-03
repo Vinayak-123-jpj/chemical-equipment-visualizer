@@ -110,7 +110,7 @@ class SystemNotification(models.Model):
         ('REPORT', 'Report Generated'),
     ]
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications', null=True, blank=True)
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
     title = models.CharField(max_length=200)
     message = models.TextField()
@@ -151,7 +151,7 @@ class EmailReportSchedule(models.Model):
         ('MONTHLY', 'Monthly'),
     ]
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_schedules')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_schedules', null=True, blank=True)
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
     email = models.EmailField()
     include_summary = models.BooleanField(default=True)
@@ -163,7 +163,7 @@ class EmailReportSchedule(models.Model):
     last_sent = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
-        return f"{self.user.username} - {self.frequency} - {self.email}"
+        return f"{self.email} - {self.frequency}"
     
     class Meta:
         ordering = ['-created_at']

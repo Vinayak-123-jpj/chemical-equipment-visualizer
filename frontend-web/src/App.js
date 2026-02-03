@@ -60,29 +60,6 @@ function App() {
   const [rankings, setRankings] = useState([]);
   const [fullscreenChart, setFullscreenChart] = useState(null);
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") || "light";
-    setTheme(savedTheme);
-    document.documentElement.setAttribute("data-theme", savedTheme);
-    document.body.className = savedTheme === "dark" ? "dark-mode" : "";
-
-    fetchHistory();
-    fetchAlerts();
-    fetchTrends();
-    fetchMaintenance();
-    fetchRankings();
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme);
-    document.body.className = newTheme === "dark" ? "dark-mode" : "";
-  };
-
-  // ─── ALL FETCH FUNCTIONS — NO AUTH HEADERS ────────────────────────────────
-
   const fetchHistory = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/api/trends/?days=90`);
@@ -139,7 +116,26 @@ function App() {
     }
   }, []);
 
-  // ─── UPLOAD ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    setTheme(savedTheme);
+    document.documentElement.setAttribute("data-theme", savedTheme);
+    document.body.className = savedTheme === "dark" ? "dark-mode" : "";
+
+    fetchHistory();
+    fetchAlerts();
+    fetchTrends();
+    fetchMaintenance();
+    fetchRankings();
+  }, [fetchHistory, fetchAlerts, fetchTrends, fetchMaintenance, fetchRankings]);
+
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    document.documentElement.setAttribute("data-theme", newTheme);
+    document.body.className = newTheme === "dark" ? "dark-mode" : "";
+  };
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -164,7 +160,6 @@ function App() {
         "success",
       );
 
-      // Parse CSV locally for the equipment grid
       const reader = new FileReader();
       reader.onload = (event) => {
         const text = event.target.result;
@@ -202,8 +197,6 @@ function App() {
     }
   };
 
-  // ─── NOTIFICATIONS ─────────────────────────────────────────────────────────
-
   const addNotification = (title, message, type = "info") => {
     const notification = {
       id: Date.now(),
@@ -217,8 +210,6 @@ function App() {
       setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
     }, 5000);
   };
-
-  // ─── REPORTS / EXPORTS ─────────────────────────────────────────────────────
 
   const downloadPDF = () => {
     axios
@@ -291,8 +282,6 @@ function App() {
     addNotification("Success", "CSV exported successfully!", "success");
   };
 
-  // ─── ALERTS ────────────────────────────────────────────────────────────────
-
   const resolveAlert = async (alertId) => {
     try {
       await axios.post(`${API_URL}/api/alerts/${alertId}/resolve/`, {});
@@ -302,8 +291,6 @@ function App() {
       addNotification("Error", "Failed to resolve alert", "error");
     }
   };
-
-  // ─── COMPARE ───────────────────────────────────────────────────────────────
 
   const toggleCompareSelection = (equipmentName) => {
     setSelectedForCompare((prev) => {
@@ -342,8 +329,6 @@ function App() {
     }
   };
 
-  // ─── MAINTENANCE ───────────────────────────────────────────────────────────
-
   const updateMaintenanceStatus = async (scheduleId, status) => {
     try {
       await axios.post(`${API_URL}/api/maintenance/${scheduleId}/update/`, {
@@ -355,8 +340,6 @@ function App() {
       addNotification("Error", "Failed to update status", "error");
     }
   };
-
-  // ─── HELPERS ───────────────────────────────────────────────────────────────
 
   const getMedalEmoji = (rank) => {
     if (rank === 1) return "🥇";
@@ -371,8 +354,6 @@ function App() {
     if (score >= 60) return "#fee140";
     return "#fa709a";
   };
-
-  // ─── CHART DATA ────────────────────────────────────────────────────────────
 
   const getChartData = () => {
     if (!summary) return null;
@@ -627,8 +608,6 @@ function App() {
         : {},
   };
 
-  // ─── FILTERING / SORTING ───────────────────────────────────────────────────
-
   const filteredData = rawData.filter(
     (item) =>
       item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -680,11 +659,8 @@ function App() {
     return Math.round((f + p + t) / 3);
   };
 
-  // ─── RENDER ────────────────────────────────────────────────────────────────
-
   return (
     <div className={`app-container ${theme === "dark" ? "dark-mode" : ""}`}>
-      {/* ── Fullscreen chart modal ── */}
       <AnimatePresence>
         {fullscreenChart && (
           <motion.div
@@ -742,7 +718,6 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* ── Toast notifications ── */}
       <div className="notifications-container">
         <AnimatePresence>
           {notifications.map((notif) => (
@@ -770,7 +745,6 @@ function App() {
         </AnimatePresence>
       </div>
 
-      {/* ── Header ── */}
       <header className="app-header">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -803,7 +777,6 @@ function App() {
         </div>
       </header>
 
-      {/* ── Alerts panel ── */}
       <AnimatePresence>
         {showAlerts && allAlerts.length > 0 && (
           <motion.div
@@ -866,7 +839,6 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* ── Upload section ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -898,7 +870,6 @@ function App() {
         </div>
       </motion.div>
 
-      {/* ── Loading spinner ── */}
       {isUploading && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -910,10 +881,8 @@ function App() {
         </motion.div>
       )}
 
-      {/* ── Main content (shown after first upload) ── */}
       {summary && !isUploading && (
         <>
-          {/* Tab bar */}
           <div className="tabs-container">
             {[
               "dashboard",
@@ -940,7 +909,6 @@ function App() {
             ))}
           </div>
 
-          {/* ── DASHBOARD ── */}
           {activeTab === "dashboard" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1002,7 +970,6 @@ function App() {
                 </div>
               </div>
 
-              {/* History table */}
               {showHistory && (
                 <AnimatePresence>
                   <motion.div
@@ -1048,7 +1015,6 @@ function App() {
                 </AnimatePresence>
               )}
 
-              {/* Distribution chart */}
               <div className="card">
                 <div className="card-header">
                   <h3>📈 Equipment Distribution</h3>
@@ -1101,7 +1067,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* ── ANALYTICS ── */}
           {activeTab === "analytics" && advancedAnalytics && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="analytics-grid">
@@ -1169,7 +1134,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* ── EQUIPMENT ── */}
           {activeTab === "equipment" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1218,7 +1182,6 @@ function App() {
                   </select>
                 </div>
 
-                {/* Comparison results */}
                 {comparisonData && (
                   <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -1289,7 +1252,6 @@ function App() {
                   </motion.div>
                 )}
 
-                {/* Equipment cards */}
                 <div className="equipment-grid">
                   {sortedData.map((item, index) => {
                     const status = getHealthStatus(
@@ -1402,7 +1364,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* ── RANKINGS ── */}
           {activeTab === "rankings" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1570,7 +1531,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* ── TRENDS ── */}
           {activeTab === "trends" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1604,7 +1564,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* ── MAINTENANCE ── */}
           {activeTab === "maintenance" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="card">
@@ -1674,7 +1633,6 @@ function App() {
             </motion.div>
           )}
 
-          {/* ── REPORTS ── */}
           {activeTab === "reports" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="reports-grid">
@@ -1702,7 +1660,6 @@ function App() {
         </>
       )}
 
-      {/* ── Empty / welcome state (before first upload) ── */}
       {!summary && !isUploading && (
         <motion.div
           initial={{ opacity: 0 }}
